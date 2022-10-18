@@ -104,7 +104,14 @@ conference {
   font-family: 'Lato', Verdana, Helvetica, sans-serif;
   font-size: 14px;
   font-weight: 700;
-  color: #25C7DA
+  color: #900C3F
+}
+
+workshop {
+  font-family: 'Lato', Verdana, Helvetica, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1FAB7D
 }
 
 name {
