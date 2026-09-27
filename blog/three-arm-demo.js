@@ -58,7 +58,7 @@ const varianceAxes = {
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
 let data;
-let method = 'npg';
+let method = 'adam';
 let start = 'uniform';
 let coordinates;
 let step = 0;
@@ -256,7 +256,7 @@ fetch('three-arm-trajectories.json')
     methods.hidden = false;
     document.getElementById('three-arm-starts').hidden = false;
     controls.hidden = false;
-    chooseScenario('uniform', 'npg');
+    chooseScenario('uniform', 'adam');
   })
   .catch(() => {
     // The written explanation and static figure remain available.
