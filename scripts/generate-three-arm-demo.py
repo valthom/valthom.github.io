@@ -16,6 +16,10 @@ CONFIG = {
     "npg": {"stepSize": 0.15},
     "adam": {"stepSize": 0.04, "beta1": 0.9, "beta2": 0.999, "epsilon": 1e-8},
 }
+STARTS = {
+    "uniform": (1 / 3, 1 / 3, 1 / 3),
+    "orange": (0.1, 0.8, 0.1),
+}
 OUTPUT = Path(__file__).resolve().parents[1] / "blog" / "three-arm-trajectories.json"
 
 
@@ -63,9 +67,10 @@ def gradient_variance(policy: list[float], method: str, baseline: float) -> floa
     )
 
 
-def simulate(seed: int, method: str, baseline_kind: str, record: bool = True) -> list[dict] | list[float]:
+def simulate(seed: int, method: str, baseline_kind: str, start: tuple[float, ...],
+             record: bool = True) -> list[dict] | list[float]:
     rng = random.Random(seed)
-    theta = [0.0, 0.0, 0.0]
+    theta = [math.log(probability) for probability in start]
     first_moment = [0.0, 0.0, 0.0]
     second_moment = [0.0, 0.0, 0.0]
     states = []
@@ -105,36 +110,40 @@ def simulate(seed: int, method: str, baseline_kind: str, record: bool = True) ->
 
 
 def main() -> None:
-    uniform = [1 / 3] * 3
+    uniform = list(STARTS["uniform"])
     for method in CONFIG:
         assert math.isclose(minimum_variance_baseline(uniform, method), 1.7 / 3)
         assert math.isclose(gradient_variance(uniform, method, baseline_for(uniform, method, "min")),
                             gradient_variance(uniform, method, baseline_for(uniform, method, "value")))
 
     payload = {"rewards": REWARDS, "steps": STEPS, "exampleSeed": EXAMPLE_SEED,
-               "cohortSize": COHORT_SIZE, "methods": {}}
-    for method, settings in CONFIG.items():
-        min_states = simulate(EXAMPLE_SEED, method, "min")
-        value_states = simulate(EXAMPLE_SEED, method, "value")
-        cohort = {"min": 0, "value": 0}
-        for seed in range(COHORT_SIZE):
-            for kind in cohort:
-                policy = simulate(seed, method, kind, record=False)
-                if policy[1] > 0.95:
-                    cohort[kind] += 1
-        payload["methods"][method] = {
-            "settings": settings,
-            "cohortMiddleOver95": cohort,
-            "min": min_states,
-            "value": value_states,
-        }
-        print(f"{method}: middle-arm >95% at step {STEPS}: {cohort}")
-        print(f"{method}: seed {EXAMPLE_SEED} final policies: "
-              f"min={min_states[-1]['p']}, value={value_states[-1]['p']}")
+               "cohortSize": COHORT_SIZE, "starts": {}}
+    for start_name, start in STARTS.items():
+        start_payload = {"policy": start, "methods": {}}
+        for method, settings in CONFIG.items():
+            min_states = simulate(EXAMPLE_SEED, method, "min", start)
+            value_states = simulate(EXAMPLE_SEED, method, "value", start)
+            cohort = {"min": 0, "value": 0}
+            for seed in range(COHORT_SIZE):
+                for kind in cohort:
+                    policy = simulate(seed, method, kind, start, record=False)
+                    if policy[1] > 0.95:
+                        cohort[kind] += 1
+            start_payload["methods"][method] = {
+                "settings": settings,
+                "cohortMiddleOver95": cohort,
+                "min": min_states,
+                "value": value_states,
+            }
+            print(f"{start_name} {method}: middle-arm >95% at step {STEPS}: {cohort}")
+            print(f"{start_name} {method}: seed {EXAMPLE_SEED} final policies: "
+                  f"min={min_states[-1]['p']}, value={value_states[-1]['p']}")
+        payload["starts"][start_name] = start_payload
 
-    assert payload["methods"]["npg"]["cohortMiddleOver95"] == {"min": 103, "value": 0}
-    assert payload["methods"]["npg"]["min"][-1]["p"][1] > 0.95
-    assert payload["methods"]["npg"]["value"][-1]["p"][0] > 0.95
+    assert payload["starts"]["uniform"]["methods"]["npg"]["cohortMiddleOver95"] == {"min": 103, "value": 0}
+    assert payload["starts"]["uniform"]["methods"]["npg"]["min"][-1]["p"][1] > 0.95
+    assert payload["starts"]["uniform"]["methods"]["npg"]["value"][-1]["p"][0] > 0.95
+    assert payload["starts"]["orange"]["methods"]["adam"]["cohortMiddleOver95"] == {"min": 164, "value": 36}
     OUTPUT.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
 
 
