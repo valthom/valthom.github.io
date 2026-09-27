@@ -138,11 +138,8 @@ def main() -> None:
         for kind, (baseline, label, color, filename) in zip(("low", "high"), BASELINES):
             curves = simulate(baseline, uniforms)
             payload["methods"][method][kind] = summarize(curves)
-            if method == "npg":
-                write_panel(curves, baseline, label, color, filename)
-            else:
-                print(f"Adam b={baseline:+.1f}: mean={payload['methods'][method][kind]['mean'][-1]:.3f}, "
-                      f"runs below 0.1={payload['methods'][method][kind]['belowPointOne'][-1]}/{RUNS}")
+            output_name = filename if method == "npg" else filename.replace(".svg", "-adam.svg")
+            write_panel(curves, baseline, label, color, output_name)
     (OUTPUT_DIR / "two-arm-trajectories.json").write_text(
         json.dumps(payload, separators=(",", ":")), encoding="utf-8"
     )
