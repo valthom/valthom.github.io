@@ -7,6 +7,7 @@
   <meta name="description" content="Why a baseline in policy gradient learning can affect exploration, commitment, and which policy an agent discovers.">
   <title>When a baseline makes an agent too sure of itself · Valentin Thomas</title>
   <link rel="stylesheet" href="../stylesheet.css">
+  <script src="baselines-exploration.js" defer></script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
 </head>
 <body>
@@ -34,19 +35,36 @@
 
         <section class="post-example" aria-labelledby="example-heading">
           <h2 id="example-heading">Two reference points, two reactions</h2>
-          <p>The numbers below show the signal after pressing each button. A positive signal reinforces the button just pressed; a negative one pushes away from it.</p>
-          <div class="post-example-grid">
-            <div class="post-example-card">
-              <h3>Baseline: −0.4</h3>
-              <p><span class="button-dot blue-dot" aria-hidden="true"></span> Blue: 1 − (−0.4) = <strong>+1.4</strong> → press blue more</p>
-              <p><span class="button-dot red-dot" aria-hidden="true"></span> Red: 0 − (−0.4) = <strong>+0.4</strong> → press red more</p>
+          <p>Blue pays 1; red pays 0. After a red press, a low baseline gives red a positive signal (0 − (−0.4) = +0.4). A higher baseline gives red a negative one (0 − 0.4 = −0.4).</p>
+          <figure class="baseline-figure" aria-labelledby="figure-title">
+            <div class="baseline-figure-heading">
+              <h3 id="figure-title">What happens after four red presses?</h3>
+              <div class="red-sequence" aria-label="Four red button presses">
+                <span class="red-press">Red</span><span class="red-press">Red</span><span class="red-press">Red</span><span class="red-press">Red</span>
+              </div>
             </div>
-            <div class="post-example-card">
-              <h3>Baseline: +0.4</h3>
-              <p><span class="button-dot blue-dot" aria-hidden="true"></span> Blue: 1 − 0.4 = <strong>+0.6</strong> → press blue more</p>
-              <p><span class="button-dot red-dot" aria-hidden="true"></span> Red: 0 − 0.4 = <strong>−0.4</strong> → press red less</p>
+            <p class="baseline-status" id="baseline-status" aria-live="polite">Before any press, both policies have a 50% chance of trying blue.</p>
+            <div class="baseline-bars">
+              <div class="baseline-bar-card">
+                <span class="baseline-name">Low baseline <strong>−0.4</strong></span>
+                <div class="baseline-probability"><span>Chance of blue next</span><strong id="blue-low-value">50%</strong></div>
+                <div class="baseline-track" aria-hidden="true"><span id="blue-low-bar" style="width: 50%"></span></div>
+                <small>Red gets reinforced.</small>
+              </div>
+              <div class="baseline-bar-card">
+                <span class="baseline-name">Higher baseline <strong>+0.4</strong></span>
+                <div class="baseline-probability"><span>Chance of blue next</span><strong id="blue-high-value">50%</strong></div>
+                <div class="baseline-track" aria-hidden="true"><span id="blue-high-bar" style="width: 50%"></span></div>
+                <small>Red gets discouraged.</small>
+              </div>
             </div>
-          </div>
+            <div class="baseline-controls" id="baseline-controls" hidden>
+              <button type="button" id="baseline-prev" disabled>Previous</button>
+              <button type="button" id="baseline-next">Press red <span aria-hidden="true">→</span></button>
+              <button type="button" id="baseline-reset" disabled>Reset</button>
+            </div>
+            <figcaption>Starting from 50%, four red presses bring the chance of blue to about <strong>33%</strong> with the low baseline or <strong>73%</strong> with the higher one. This illustrative natural-policy-gradient trace uses a fixed step size of 0.25 and holds the presses constant to compare the baselines.</figcaption>
+          </figure>
         </section>
 
         <p>With the low baseline, even a disappointing red press gets reinforced. If the agent happens to press red a few times early on, red becomes more likely each time. Blue becomes rarer, so the agent gets fewer chances to discover that blue was better all along. Its own decisions determine what evidence it will see next.</p>
