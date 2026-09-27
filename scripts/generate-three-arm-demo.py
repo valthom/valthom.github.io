@@ -1,4 +1,4 @@
-"""Build the reproducible on-policy data for the three-arm blog animation."""
+"""Generate on-policy NPG and policy-gradient-plus-Adam comparison data."""
 
 from __future__ import annotations
 
@@ -9,11 +9,13 @@ from pathlib import Path
 
 
 REWARDS = (1.0, 0.7, 0.0)
-STEP_SIZE = 0.15
 STEPS = 120
 EXAMPLE_SEED = 109
 COHORT_SIZE = 1000
-GAP_BASELINE = 0.85
+CONFIG = {
+    "npg": {"stepSize": 0.15},
+    "adam": {"stepSize": 0.04, "beta1": 0.9, "beta2": 0.999, "epsilon": 1e-8},
+}
 OUTPUT = Path(__file__).resolve().parents[1] / "blog" / "three-arm-trajectories.json"
 
 
@@ -24,68 +26,116 @@ def softmax(theta: list[float]) -> list[float]:
     return [weight / total for weight in weights]
 
 
-def minimum_variance_baseline(policy: list[float]) -> float:
-    # For the minimum-norm natural gradient x_i, ||x_i||² = 2/(3π_i²).
-    # Hence b* = Σ π_i r_i ||x_i||² / Σ π_i ||x_i||².
-    inverse = [1 / probability for probability in policy]
-    return sum(reward * weight for reward, weight in zip(REWARDS, inverse)) / sum(inverse)
+def direction(policy: list[float], arm: int, method: str) -> list[float]:
+    if method == "npg":
+        # Minimum-norm solution of F x = ∇ log π(arm), with F=diag(π)-ππᵀ.
+        return [(float(arm == j) - 1 / 3) / policy[arm] for j in range(3)]
+    # Score-function policy gradient: ∇ log π(arm) = e_arm - π.
+    return [float(arm == j) - policy[j] for j in range(3)]
 
 
-def simulate(seed: int, use_minimum_variance: bool) -> list[dict]:
+def minimum_variance_baseline(policy: list[float], method: str) -> float:
+    if method == "npg":
+        # ||x_i||² = 2/(3π_i²), so π_i ||x_i||² ∝ 1/π_i.
+        weights = [1 / probability for probability in policy]
+    else:
+        squared_norms = [sum(x * x for x in direction(policy, arm, method)) for arm in range(3)]
+        weights = [policy[arm] * squared_norms[arm] for arm in range(3)]
+    return sum(REWARDS[arm] * weights[arm] for arm in range(3)) / sum(weights)
+
+
+def baseline_for(policy: list[float], method: str, baseline_kind: str) -> float:
+    if baseline_kind == "min":
+        return minimum_variance_baseline(policy, method)
+    return sum(REWARDS[arm] * policy[arm] for arm in range(3))
+
+
+def gradient_variance(policy: list[float], method: str, baseline: float) -> float:
+    """Trace covariance of the one-sample gradient, enumerating the three arms."""
+    vectors = [
+        [(REWARDS[arm] - baseline) * x for x in direction(policy, arm, method)]
+        for arm in range(3)
+    ]
+    # Pairwise form avoids cancellation between large second-moment terms.
+    return sum(
+        policy[i] * policy[j] * sum((vectors[i][k] - vectors[j][k]) ** 2 for k in range(3))
+        for i in range(3) for j in range(i + 1, 3)
+    )
+
+
+def simulate(seed: int, method: str, baseline_kind: str, record: bool = True) -> list[dict] | list[float]:
     rng = random.Random(seed)
     theta = [0.0, 0.0, 0.0]
+    first_moment = [0.0, 0.0, 0.0]
+    second_moment = [0.0, 0.0, 0.0]
     states = []
     last_action = None
     for step in range(STEPS + 1):
         policy = softmax(theta)
-        baseline = minimum_variance_baseline(policy) if use_minimum_variance else GAP_BASELINE
-        states.append({
-            "p": [round(probability, 6) for probability in policy],
-            "b": round(baseline, 6),
-            "lastAction": last_action,
-        })
+        baseline = baseline_for(policy, method, baseline_kind)
+        if record:
+            states.append({
+                "p": [round(probability, 6) for probability in policy],
+                "b": round(baseline, 6),
+                "variance": round(gradient_variance(policy, method, baseline), 6),
+                "lastAction": last_action,
+            })
         if step == STEPS:
             break
-        # Both algorithms receive the same exogenous uniform draw, but each
-        # maps it through its *own current policy*. Each action is on-policy.
+        # The same seed provides paired uniform draws. Each policy maps the
+        # draw through its own current probabilities, so samples are on-policy.
         draw = rng.random()
         action = 0 if draw < policy[0] else 1 if draw < policy[0] + policy[1] else 2
-        theta[action] += STEP_SIZE * (REWARDS[action] - baseline) / policy[action]
+        if method == "npg":
+            theta[action] += CONFIG[method]["stepSize"] * (REWARDS[action] - baseline) / policy[action]
+        else:
+            gradient = [(REWARDS[action] - baseline) * x for x in direction(policy, action, method)]
+            beta1 = CONFIG[method]["beta1"]
+            beta2 = CONFIG[method]["beta2"]
+            for j in range(3):
+                first_moment[j] = beta1 * first_moment[j] + (1 - beta1) * gradient[j]
+                second_moment[j] = beta2 * second_moment[j] + (1 - beta2) * gradient[j] ** 2
+                corrected_first = first_moment[j] / (1 - beta1 ** (step + 1))
+                corrected_second = second_moment[j] / (1 - beta2 ** (step + 1))
+                theta[j] += CONFIG[method]["stepSize"] * corrected_first / (
+                    math.sqrt(corrected_second) + CONFIG[method]["epsilon"]
+                )
         last_action = action
-    return states
+    return states if record else policy
 
 
 def main() -> None:
-    example_min = simulate(EXAMPLE_SEED, True)
-    example_gap = simulate(EXAMPLE_SEED, False)
-    cohort_min_middle = 0
-    cohort_gap_middle = 0
-    for seed in range(COHORT_SIZE):
-        if simulate(seed, True)[-1]["p"][1] > 0.95:
-            cohort_min_middle += 1
-        if simulate(seed, False)[-1]["p"][1] > 0.95:
-            cohort_gap_middle += 1
+    uniform = [1 / 3] * 3
+    for method in CONFIG:
+        assert math.isclose(minimum_variance_baseline(uniform, method), 1.7 / 3)
+        assert math.isclose(gradient_variance(uniform, method, baseline_for(uniform, method, "min")),
+                            gradient_variance(uniform, method, baseline_for(uniform, method, "value")))
 
-    assert example_min[-1]["p"][1] > 0.95
-    assert example_gap[-1]["p"][0] > 0.95
-    assert math.isclose(minimum_variance_baseline([1 / 3] * 3), 1.7 / 3)
-    payload = {
-        "rewards": REWARDS,
-        "stepSize": STEP_SIZE,
-        "steps": STEPS,
-        "exampleSeed": EXAMPLE_SEED,
-        "gapBaseline": GAP_BASELINE,
-        "cohortSize": COHORT_SIZE,
-        "cohortMiddleOver95": {"min": cohort_min_middle, "gap": cohort_gap_middle},
-        "min": example_min,
-        "gap": example_gap,
-    }
+    payload = {"rewards": REWARDS, "steps": STEPS, "exampleSeed": EXAMPLE_SEED,
+               "cohortSize": COHORT_SIZE, "methods": {}}
+    for method, settings in CONFIG.items():
+        min_states = simulate(EXAMPLE_SEED, method, "min")
+        value_states = simulate(EXAMPLE_SEED, method, "value")
+        cohort = {"min": 0, "value": 0}
+        for seed in range(COHORT_SIZE):
+            for kind in cohort:
+                policy = simulate(seed, method, kind, record=False)
+                if policy[1] > 0.95:
+                    cohort[kind] += 1
+        payload["methods"][method] = {
+            "settings": settings,
+            "cohortMiddleOver95": cohort,
+            "min": min_states,
+            "value": value_states,
+        }
+        print(f"{method}: middle-arm >95% at step {STEPS}: {cohort}")
+        print(f"{method}: seed {EXAMPLE_SEED} final policies: "
+              f"min={min_states[-1]['p']}, value={value_states[-1]['p']}")
+
+    assert payload["methods"]["npg"]["cohortMiddleOver95"] == {"min": 103, "value": 0}
+    assert payload["methods"]["npg"]["min"][-1]["p"][1] > 0.95
+    assert payload["methods"]["npg"]["value"][-1]["p"][0] > 0.95
     OUTPUT.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
-    print(
-        f"Example expected reward: min={sum(a * b for a, b in zip(example_min[-1]['p'], REWARDS)):.3f}, "
-        f"gap={sum(a * b for a, b in zip(example_gap[-1]['p'], REWARDS)):.3f}"
-    )
-    print(f"Middle arm >95% at step {STEPS}: min={cohort_min_middle}, gap={cohort_gap_middle} of {COHORT_SIZE}")
 
 
 if __name__ == "__main__":
