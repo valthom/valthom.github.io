@@ -599,7 +599,7 @@ span.highlight {
 .three-arm-numbers { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin-top: 15px; font-size: 12px; font-weight: 700; }
 .three-arm-numbers b { color: inherit; }
 .three-arm-run-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 15px; padding-top: 12px; border-top: 1px solid #e6eeeb; color: #50666a; font-size: 12px; }
-.three-arm-run-footer strong { color: #173842; font-size: 17px; }
+.three-arm-run-footer strong { margin-left: 4px; color: #173842; font-size: 17px; }
 .three-arm-last-action { font-weight: 700; }
 .three-arm-controls { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 18px; margin-top: 20px; }
 .three-arm-controls[hidden] { display: none; }
