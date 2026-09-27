@@ -25,7 +25,7 @@ const twoArmPanels = {
 };
 const twoArmSvgNamespace = 'http://www.w3.org/2000/svg';
 let twoArmData;
-let twoArmMethod = 'npg';
+let twoArmMethod = 'adam';
 let twoArmStep = 0;
 let twoArmTimer = null;
 
@@ -133,7 +133,7 @@ fetch('two-arm-trajectories.json')
   .then(payload => {
     twoArmData = payload;
     twoArmStepInput.max = payload.steps;
-    chooseTwoArmMethod('npg');
+    chooseTwoArmMethod('adam');
     twoArmStatic.hidden = true;
     twoArmFigure.hidden = false;
   })
