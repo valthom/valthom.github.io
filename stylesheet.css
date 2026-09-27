@@ -522,8 +522,26 @@ span.highlight {
 
 .baseline-figure { margin: 0; }
 .baseline-plot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.baseline-plot-grid[hidden], #two-arm-interactive[hidden] { display: none; }
 .baseline-plot-grid img { display: block; width: 100%; min-width: 0; height: auto; }
 .baseline-figure figcaption { margin-top: 18px; color: #5a7073; font-size: 13px; line-height: 1.5; }
+.two-arm-panel { min-width: 0; padding: 15px; border: 1px solid #dce8e4; border-radius: 13px; background: #fff; }
+.two-arm-panel h3 { margin: 0 0 2px; font-size: 17px; line-height: 1.35; }
+.two-arm-panel-low h3 { color: #bf604d; }
+.two-arm-panel-high h3 { color: #167b80; }
+.two-arm-panel-subtitle { margin: 0; color: #597174; font-size: 12px; }
+.two-arm-chart { display: block; width: 100%; height: auto; margin: 8px 0 0; }
+.two-arm-grid { fill: none; stroke: #e3ece9; stroke-width: 1; }
+.two-arm-tick, .two-arm-axis-title { fill: #5b7377; font: 11px 'Lato', Verdana, sans-serif; }
+.two-arm-sample-line, .two-arm-mean-line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.two-arm-sample-line { stroke-width: 1.1; opacity: .11; }
+.two-arm-mean-line { stroke-width: 3.4; }
+.two-arm-panel-low .two-arm-sample-line, .two-arm-panel-low .two-arm-mean-line { stroke: #bf604d; }
+.two-arm-panel-high .two-arm-sample-line, .two-arm-panel-high .two-arm-mean-line { stroke: #167b80; }
+.two-arm-panel-low .two-arm-mean-dot { fill: #bf604d; }
+.two-arm-panel-high .two-arm-mean-dot { fill: #167b80; }
+.two-arm-readout { margin: 0; color: #405c61; font-size: 12px; font-weight: 700; line-height: 1.45; }
+#two-arm-controls { margin-top: 15px; }
 
 .math-best, .arm-best { color: #2469aa; }
 .math-middle, .arm-middle { color: #a96524; }
