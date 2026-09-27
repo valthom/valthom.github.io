@@ -4,6 +4,7 @@
   <title>Valentin Thomas</title>
   
   <meta name="author" content="Valentin Thomas">
+  <meta name="description" content="Valentin Thomas — research in tabular foundation models, reinforcement learning, and optimization.">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   
   <link rel="stylesheet" type="text/css" href="stylesheet.css">
@@ -11,13 +12,13 @@
 </head>
 
 <body>
-  <table style="width:100%;max-width:800px;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
+  <table class="site-shell" style="width:100%;max-width:800px;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
     <tr style="padding:0px">
       <td style="padding:0px">
-        <table style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
+        <table class="hero" style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
           <tr style="padding:0px">
             <td style="padding:2.5%;width:63%;vertical-align:middle">
-              <p style="text-align:center">
+              <p class="hero-name" style="text-align:center">
                 <name>Valentin Thomas</name>
               </p>
               <p> I am a Member of Technical Staff at <a
@@ -29,12 +30,12 @@
               Reinforcement Learning and Deep Learning under supervision of
               Yoshua Bengio and Nicolas Le Roux.
               </p>
-              <p style="text-align:center">
-                <a href="mailto:vltn.thomas@gmail.com">Email</a> &nbsp/&nbsp
-                <a href="data/Resume_Valentin_THOMAS.pdf">CV</a> &nbsp/&nbsp
-                <a href="https://scholar.google.com/citations?hl=en&user=XRhKEGMAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a> &nbsp/&nbsp
-                <a href="https://x.com/_valthomas">Twitter</a> &nbsp/&nbsp
-                <a href="https://github.com/valthom/">Github</a>
+              <p class="profile-links" style="text-align:center">
+                <a href="mailto:vltn.thomas@gmail.com">Email</a>
+                <a href="data/Resume_Valentin_THOMAS.pdf">CV</a>
+                <a href="https://scholar.google.com/citations?hl=en&user=XRhKEGMAAAAJ&view_op=list_works&sortby=pubdate">Google Scholar</a>
+                <a href="https://x.com/_valthomas">Twitter</a>
+                <a href="https://github.com/valthom/">GitHub</a>
               </p>
             </td>
             <td style="padding:2.5%;width:40%;max-width:40%">
@@ -42,10 +43,10 @@
             </td>
           </tr>
         </tbody></table>
-        <table style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
+        <table class="research-intro" style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
             <tr>
             <td style="padding:20px;width:100%;vertical-align:middle">
-              <heading>Research</heading>
+              <heading>Research &amp; publications</heading>
               <p>
                 I'm interested in reinforcement learning, deep learning and optimization. I have worked on unsupervised RL, planning, generalization in deep learning and optimization aspects of reinforcement learning. Representative papers are <span class="highlight">highlighted</span>. Stars * indicate first authorship.
               </p>
@@ -53,26 +54,23 @@
           </tr>
         </tbody></table>
 
-        <table style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
+        <table class="publications" style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
 
           <tr bgcolor="#ffffd0">
             <td style="padding:20px;width:25%;vertical-align:middle">
-              <img src="images/ood.png" alt="single" width="160" style="border-style: none">
+              <img src="images/ood.png" alt="Illustration for tabular generalization research" width="160" style="border-style: none">
             </td>
             <td width="75%" valign="middle">
-	     <a href="https://arxiv.org/abs/2511.09665" id="single">
-                <papertitle>Generalization Can Emerge in Tabular Foundation Models From a Single Table</papertitle>
+	     <a href="https://arxiv.org/abs/2608.17957" id="tabular-generalization">
+                <papertitle>Understanding the Surprising Generalization Properties of Tabular Foundation Models</papertitle>
               </a>
               <br>
-              Junwei Ma, Nour Shaheen, Alex Labach, Amine Mhedhbi, Frank Hutter, Anthony L. Caterini, Valentin Thomas
+              Nour Shaheen*, Junwei Ma*, Alex Labach, Frank Hutter, <strong>Valentin Thomas</strong>, Anthony L. Caterini
               <br>
-	      <workshop>Spotlight at the AI for Tabular Data workshop at EurIPS 2025</workshop>
+	      <conference>NeurIPS 2026</conference>
               <br>
               <p></p>
-	      <p>We show that ICL can generalize to many tables and modalities even
-	      when training on only one limited data source! We investigate this
-	      phenomenon and find it is deeply connected to the number of tasks one
-	      can create from even limited data.</p>
+	      <p>We study why tabular foundation models can transfer across datasets, even after training on a single table. The results point to the number and quality of pre-training tasks, and offer a retrieval-based view of tabular in-context generalization.</p>
             </td>
           </tr>
 
@@ -460,12 +458,12 @@ Johanni Brea and Martin Jaggi<br>
 					
         </tbody></table>-->
 			
-        <table style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
+        <table class="site-footer" style="width:100%;border:0px;border-spacing:0px;border-collapse:separate;margin-right:auto;margin-left:auto;"><tbody>
           <tr>
             <td style="padding:0px">
               <br>
               <p style="text-align:right;font-size:small;">
-	      Website template from <a = href="http://jonbarron.info"> Jon Barron</a> (<a href="https://github.com/jonbarron/jonbarron_website">source code</a>).
+	      Originally based on <a href="https://jonbarron.info">Jon Barron's website template</a> (<a href="https://github.com/jonbarron/jonbarron_website">source code</a>).
               </p>
             </td>
           </tr>
