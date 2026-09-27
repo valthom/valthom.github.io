@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Valentin Thomas">
+  <meta name="description" content="Why a baseline in policy gradient learning can affect exploration, commitment, and which policy an agent discovers.">
+  <title>When a baseline makes an agent too sure of itself · Valentin Thomas</title>
+  <link rel="stylesheet" href="../stylesheet.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
+</head>
+<body>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="site-brand" href="/">Valentin Thomas</a>
+    <div class="site-nav-links">
+      <a href="/">Home</a>
+      <a href="/blog/" aria-current="page">Blog</a>
+    </div>
+  </nav>
+
+  <main class="post-shell">
+    <article>
+      <header class="post-header">
+        <a class="post-back" href="/blog/">← All posts</a>
+        <p class="post-meta"><time datetime="2026-09-27">September 27, 2026</time> · Reinforcement learning</p>
+        <h1>When a baseline makes an agent too sure of itself</h1>
+        <p class="post-deck">In policy gradients, a baseline can do more than quiet noisy updates. It can change how quickly an agent commits to what it has already tried.</p>
+      </header>
+
+      <div class="post-body">
+        <p>Imagine an agent learning to press one of two buttons. The <strong>blue button gives it a treat</strong> every time; the <strong>red button gives it nothing</strong>. The agent does not know this yet. It has to try buttons and gradually adjust its chances of pressing each one.</p>
+
+        <p>A policy-gradient learner updates itself using the reward from the button it pressed, compared with a reference point called a <em>baseline</em>. The signal is simply <strong>reward minus baseline</strong>. Baselines are usually introduced as a way to make these updates less noisy. That story is true, but it misses what happens along one particular learning journey.</p>
+
+        <section class="post-example" aria-labelledby="example-heading">
+          <h2 id="example-heading">Two reference points, two reactions</h2>
+          <p>The numbers below show the signal after pressing each button. A positive signal reinforces the button just pressed; a negative one pushes away from it.</p>
+          <div class="post-example-grid">
+            <div class="post-example-card">
+              <h3>Baseline: −0.4</h3>
+              <p><span class="button-dot blue-dot" aria-hidden="true"></span> Blue: 1 − (−0.4) = <strong>+1.4</strong> → press blue more</p>
+              <p><span class="button-dot red-dot" aria-hidden="true"></span> Red: 0 − (−0.4) = <strong>+0.4</strong> → press red more</p>
+            </div>
+            <div class="post-example-card">
+              <h3>Baseline: +0.4</h3>
+              <p><span class="button-dot blue-dot" aria-hidden="true"></span> Blue: 1 − 0.4 = <strong>+0.6</strong> → press blue more</p>
+              <p><span class="button-dot red-dot" aria-hidden="true"></span> Red: 0 − 0.4 = <strong>−0.4</strong> → press red less</p>
+            </div>
+          </div>
+        </section>
+
+        <p>With the low baseline, even a disappointing red press gets reinforced. If the agent happens to press red a few times early on, red becomes more likely each time. Blue becomes rarer, so the agent gets fewer chances to discover that blue was better all along. Its own decisions determine what evidence it will see next.</p>
+
+        <p>With the higher baseline, a red press moves the agent away from red. It leaves the door open for more blue presses. The difference is less about one update than about the <strong>feedback loop</strong>: try a button, change the policy, then collect the next experience using that changed policy.</p>
+
+        <h2>But isn't the average update the same?</h2>
+        <p>Yes. At a fixed policy, subtracting either baseline leaves the <em>expected</em> policy gradient unchanged. Averaged over possible button presses, both point toward blue. But a learner lives through one sequence of presses, not the average of every possible sequence. An unlucky early streak can make the better button so unlikely that the corrective evidence almost never arrives.</p>
+
+        <p>In our <a href="https://arxiv.org/abs/2008.13773">ICML 2021 paper</a>, we call quick reinforcement of the sampled action <em>committal</em> behaviour. A less committal update keeps alternatives in play for longer. That is why the baseline is tied to exploration and exploitation: it affects how quickly the learner acts as though its early experience has settled the question.</p>
+
+        <h2>Why variance alone does not settle it</h2>
+        <p>The two-button story is only the beginning. In a three-button example, the rewards are 1, 0.7, and 0. The baseline that minimizes update variance can still allow the learner to settle on the middle button. Another baseline has <em>higher</em> variance but avoids that failure in the paper's setting. The quietest update is not necessarily the one that leads to the best discovery.</p>
+
+        <p>This is not a rule to always choose a larger baseline. A learner that never commits has its own problems, and the precise results depend on the algorithm and setting. The useful shift in perspective is to ask what a baseline makes the agent do <em>after each experience</em>, and how that changes the experiences available later.</p>
+
+        <p>Our <a href="https://openreview.net/pdf?id=XzeTJBq1Ce2">NeurIPS 2022 follow-up</a> develops the story further, including why the value function is a particularly useful reference point under its assumptions. The broad lesson remains simple: in learning from your own actions, a baseline can change more than the noise. It can change when you decide you have seen enough.</p>
+
+        <aside class="post-note"><strong>Scope:</strong> The sharp counterexamples in the ICML paper concern particular policy-gradient methods in small bandit problems. They do not imply that every negative baseline traps every RL agent.</aside>
+      </div>
+    </article>
+    <footer class="blog-footer"><a href="/blog/">← Back to the blog</a></footer>
+  </main>
+</body>
+</html>
