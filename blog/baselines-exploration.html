@@ -55,11 +55,16 @@
         <p>In our <a href="https://arxiv.org/abs/2008.13773">ICML 2021 paper</a>, we call quick reinforcement of the sampled action <em>committal</em> behaviour. A less committal update keeps alternatives in play for longer. That is why the baseline is tied to exploration and exploitation: it affects how quickly the learner acts as though its early experience has settled the question.</p>
 
         <h2>Why variance alone does not settle it</h2>
-        <p>The two-button story is only the beginning. Give the agent three choices: <span class="math-best">blue pays 1</span>, <span class="math-middle">orange pays 0.7</span>, and <span class="math-low">gray pays 0</span>. Now the baseline that minimizes the variance of a natural-gradient update can still reinforce orange. A higher baseline between 0.7 and 1 pushes away from orange and lets blue win.</p>
+        <p>The two-button story is only the beginning. Give the agent three choices: <span class="math-best">blue pays 1</span>, <span class="math-middle">orange pays 0.7</span>, and <span class="math-low">gray pays 0</span>. The baseline that minimizes a natural-gradient update's variance can still let the agent settle on orange. The <em>value baseline</em>—the current policy's expected reward—adapts as the policy changes and helps it keep exploring.</p>
 
         <figure class="three-arm-demo" aria-labelledby="three-arm-heading">
           <h3 id="three-arm-heading">Watch one learning run</h3>
           <p class="three-arm-intro">Each point is a policy: the closer it is to a corner, the more often it chooses that arm. Both begin in the center and sample each next action from their own current probabilities.</p>
+          <div class="three-arm-methods" id="three-arm-methods" role="group" aria-label="Optimization method" hidden>
+            <button type="button" id="three-arm-method-npg" aria-pressed="true">Natural policy gradient</button>
+            <button type="button" id="three-arm-method-adam" aria-pressed="false">Policy gradient + Adam</button>
+          </div>
+          <p class="three-arm-settings" id="three-arm-settings">NPG · step size 0.15 · same random draws in both runs</p>
           <div class="three-arm-legend" aria-label="Rewards by arm">
             <span class="arm-best">Blue <strong>1.0</strong></span>
             <span class="arm-middle">Orange <strong>0.7</strong></span>
@@ -67,24 +72,24 @@
           </div>
           <svg class="three-arm-simplex" viewBox="0 0 340 300" role="img" aria-labelledby="simplex-title simplex-desc">
             <title id="simplex-title">Three-arm policy triangle with two learning trajectories</title>
-            <desc id="simplex-desc">Both policies begin at the center, with equal probability for blue, orange, and gray. Press Play to trace minimum-variance and gap-baseline learning.</desc>
+            <desc id="simplex-desc">Both policies begin at the center, with equal probability for blue, orange, and gray. Press Play to trace minimum-variance and value-baseline learning.</desc>
             <polygon class="simplex-surface" points="170,38 42,252 298,252"/>
             <path class="simplex-grid" d="M106 145H234 M106 145L170 252 M234 145L170 252"/>
             <circle class="simplex-vertex-dot arm-best-fill" cx="170" cy="38" r="5"/>
             <circle class="simplex-vertex-dot arm-middle-fill" cx="42" cy="252" r="5"/>
             <circle class="simplex-vertex-dot arm-low-fill" cx="298" cy="252" r="5"/>
             <path class="simplex-trail simplex-trail-min" id="simplex-trail-min" d=""/>
-            <path class="simplex-trail simplex-trail-gap" id="simplex-trail-gap" d=""/>
+            <path class="simplex-trail simplex-trail-value" id="simplex-trail-value" d=""/>
             <circle class="simplex-start" id="simplex-start" cx="170" cy="180.7" r="7"/>
             <circle class="simplex-marker simplex-marker-min" id="simplex-marker-min" cx="170" cy="180.7" r="8" visibility="hidden"/>
-            <circle class="simplex-marker simplex-marker-gap" id="simplex-marker-gap" cx="170" cy="180.7" r="8" visibility="hidden"/>
+            <circle class="simplex-marker simplex-marker-value" id="simplex-marker-value" cx="170" cy="180.7" r="8" visibility="hidden"/>
             <text class="simplex-label arm-best" x="170" y="24" text-anchor="middle">Blue · 1.0</text>
             <text class="simplex-label arm-middle" x="42" y="278" text-anchor="middle">Orange · 0.7</text>
             <text class="simplex-label arm-low" x="298" y="278" text-anchor="middle">Gray · 0</text>
           </svg>
           <div class="three-arm-trail-legend" aria-label="Learning trajectories">
             <span class="trail-min">Minimum variance</span>
-            <span class="trail-gap">Gap baseline</span>
+            <span class="trail-value">Value baseline</span>
           </div>
           <div class="three-arm-runs">
             <div class="three-arm-run" id="three-arm-min">
@@ -92,8 +97,8 @@
               <div class="three-arm-numbers"><span class="arm-best">Blue <b>33%</b></span><span class="arm-middle">Orange <b>33%</b></span><span class="arm-low">Gray <b>33%</b></span></div>
               <div class="three-arm-run-footer"><span>Expected reward <strong class="three-arm-reward">0.57</strong></span><span class="three-arm-last-action">Before the first choice</span></div>
             </div>
-            <div class="three-arm-run" id="three-arm-gap">
-              <div class="three-arm-run-heading"><strong>Gap baseline</strong><span class="baseline-value">b = 0.85</span></div>
+            <div class="three-arm-run" id="three-arm-value">
+              <div class="three-arm-run-heading"><strong>Value baseline</strong><span class="baseline-value">V = 0.57</span></div>
               <div class="three-arm-numbers"><span class="arm-best">Blue <b>33%</b></span><span class="arm-middle">Orange <b>33%</b></span><span class="arm-low">Gray <b>33%</b></span></div>
               <div class="three-arm-run-footer"><span>Expected reward <strong class="three-arm-reward">0.57</strong></span><span class="three-arm-last-action">Before the first choice</span></div>
             </div>
@@ -103,20 +108,46 @@
             <label for="three-arm-step">Learning step <output id="three-arm-step-value">0 / 120</output></label>
             <input type="range" id="three-arm-step" min="0" max="120" value="0">
           </div>
-          <figcaption>This is one illustrative <em>on-policy</em> run, chosen to show the possible failure: by step 120, minimum variance favors orange (expected reward 0.70), while the gap baseline favors blue (about 1.00). Across 1,000 simulated runs with the same settings, 103 minimum-variance runs put over 95% probability on orange; none of the gap-baseline runs did. Both use natural policy gradient, a softmax policy, and step size 0.15; Adam is not used.</figcaption>
+          <div class="three-arm-variance" aria-labelledby="variance-heading">
+            <h4 id="variance-heading">Variance of the sampled gradient</h4>
+            <p id="variance-kind">Exact one-step natural-gradient variance at each policy, shown on a log scale.</p>
+            <svg class="variance-chart" viewBox="0 0 560 215" role="img" aria-labelledby="variance-title variance-desc">
+              <title id="variance-title">Gradient variance over learning steps</title>
+              <desc id="variance-desc">The two baselines have equal gradient variance at the uniform starting policy. Press Play to reveal each variance curve.</desc>
+              <g id="variance-grid"></g>
+              <path class="variance-path variance-path-min" id="variance-path-min" d=""/>
+              <path class="variance-path variance-path-value" id="variance-path-value" d=""/>
+              <circle class="variance-marker variance-marker-min" id="variance-marker-min" cx="50" cy="0" r="5"/>
+              <circle class="variance-marker variance-marker-value" id="variance-marker-value" cx="50" cy="0" r="5"/>
+              <text class="variance-axis-label" x="50" y="202" text-anchor="middle">0</text>
+              <text class="variance-axis-label" x="275" y="202" text-anchor="middle">60</text>
+              <text class="variance-axis-label" x="500" y="202" text-anchor="middle">120 steps</text>
+            </svg>
+            <div class="variance-readouts"><span class="trail-min">Minimum variance: <strong id="variance-min-current">0.53</strong></span><span class="trail-value">Value baseline: <strong id="variance-value-current">0.53</strong></span></div>
+            <p class="variance-note">Each curve is measured at <em>that learner's own current policy</em>. “Minimum variance” only promises the smallest variance among baselines at the <em>same</em> policy, so its curve can sit above the value-baseline curve later.</p>
+          </div>
+          <figcaption id="three-arm-caption">This selected on-policy NPG run starts uniformly. By step 120, the minimum-variance policy almost always picks orange (expected reward 0.70), while the value-baseline policy nearly always picks blue (about 1.00). Among 1,000 simulated runs, 103 minimum-variance runs and no value-baseline runs put over 95% probability on orange at step 120. The paper proves a nonzero chance of true suboptimal convergence from a uniform start; these finite runs illustrate it.</figcaption>
         </figure>
 
         <details class="baseline-math">
           <summary>How do we derive the minimum-variance baseline?</summary>
           <div class="baseline-math-content">
-            <p>For arm <em>i</em>, write its reward as <span class="math-reward">r<sub>i</sub></span>, its current probability as π<sub>i</sub>, and its natural-gradient direction as <em>x<sub>i</sub></em>. The sampled update is <span class="math-line">G<sub>i</sub>(b) = (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b</span>) x<sub>i</sub>.</span></p>
-            <p>The expected update does not depend on <span class="math-baseline">b</span>, because Σ<sub>i</sub> π<sub>i</sub>x<sub>i</sub> = 0. So minimizing its variance means minimizing the part that <em>does</em> depend on the baseline:</p>
+            <p>For arm <em>i</em>, write its reward as <span class="math-reward">r<sub>i</sub></span>, its current probability as π<sub>i</sub>, and its gradient direction as <em>x<sub>i</sub></em>. The sampled gradient is <span class="math-line">G<sub>i</sub>(b) = (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b</span>) x<sub>i</sub>.</span></p>
+            <p>The expected sampled gradient does not depend on <span class="math-baseline">b</span>, because Σ<sub>i</sub> π<sub>i</sub>x<sub>i</sub> = 0. So minimizing its variance means minimizing the part that <em>does</em> depend on the baseline:</p>
             <div class="math-line">Σ<sub>i</sub> π<sub>i</sub>(<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b</span>)<sup>2</sup> ‖x<sub>i</sub>‖<sup>2</sup>.</div>
             <p>Differentiate with respect to <span class="math-baseline">b</span> and set the result to zero:</p>
             <div class="math-line"><span class="math-baseline">b*</span> = [Σ<sub>i</sub> π<sub>i</sub><span class="math-reward">r<sub>i</sub></span> ‖x<sub>i</sub>‖<sup>2</sup>] / [Σ<sub>i</sub> π<sub>i</sub> ‖x<sub>i</sub>‖<sup>2</sup>].</div>
+            <h4>Natural policy gradient</h4>
             <p>For the three-arm softmax policy, the minimum-norm natural-gradient direction has ‖x<sub>i</sub>‖<sup>2</sup> = 2 / (3π<sub>i</sub><sup>2</sup>). The common factors cancel:</p>
             <div class="math-line"><span class="math-baseline">b*(π)</span> = [<span class="math-best">1/π<sub>blue</sub></span> + <span class="math-middle">0.7/π<sub>orange</sub></span> + <span class="math-low">0/π<sub>gray</sub></span>] / [1/π<sub>blue</sub> + 1/π<sub>orange</sub> + 1/π<sub>gray</sub>].</div>
-            <p>At the uniform starting policy, <span class="math-baseline">b* ≈ 0.57</span>. An <span class="math-middle">orange</span> reward of 0.7 then gives a positive signal, about +0.13, and reinforces orange. With the fixed <span class="math-gap">gap baseline 0.85</span>, the same reward gives −0.15 and discourages orange. The first choice reduces variance <em>at the current policy</em>; it does not guarantee a better sequence of future choices.</p>
+            <p>The <span class="math-gap">value baseline</span> is simply <span class="math-line">V(π) = <span class="math-best">π<sub>blue</sub></span> + <span class="math-middle">0.7π<sub>orange</sub></span>.</span> At the uniform start, both baselines equal about 0.57, so both initially reinforce orange after choosing it. As learning unfolds, the minimum-variance baseline can fall while the value baseline rises with the policy's expected reward. This changes how strongly the learner commits to orange.</p>
+            <h4>Policy gradient with Adam</h4>
+            <p>In the Adam view, the sampled <em>raw</em> policy gradient uses x<sub>i</sub> = e<sub>i</sub> − π rather than the natural-gradient direction. The same differentiation gives a different minimum-variance baseline:</p>
+            <div class="math-line"><span class="math-baseline">b*<sub>PG</sub>(π)</span> = [Σ<sub>i</sub> π<sub>i</sub><span class="math-reward">r<sub>i</sub></span> ‖e<sub>i</sub> − π‖<sup>2</sup>] / [Σ<sub>i</sub> π<sub>i</sub> ‖e<sub>i</sub> − π‖<sup>2</sup>].</div>
+            <p>Adam then averages and rescales these gradients using its past first and second moments. The chart reports variance of the raw gradient <em>before</em> Adam; this formula does not claim to minimize variance of Adam's history-dependent parameter step.</p>
+            <h4>What does the variance chart measure?</h4>
+            <div class="math-line">Var[G(b)] = Σ<sub>i</sub> π<sub>i</sub>‖G<sub>i</sub>(b)‖<sup>2</sup> − ‖Σ<sub>i</sub> π<sub>i</sub>G<sub>i</sub>(b)‖<sup>2</sup>.</div>
+            <p>We calculate this exactly from all three possible arms at each displayed policy. The log scale keeps both small and large values visible.</p>
           </div>
         </details>
 
