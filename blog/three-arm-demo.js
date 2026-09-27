@@ -4,6 +4,10 @@ const methodButtons = {
   npg: document.getElementById('three-arm-method-npg'),
   adam: document.getElementById('three-arm-method-adam'),
 };
+const startButtons = {
+  uniform: document.getElementById('three-arm-start-uniform'),
+  orange: document.getElementById('three-arm-start-orange'),
+};
 const settings = document.getElementById('three-arm-settings');
 const caption = document.getElementById('three-arm-caption');
 const playButton = document.getElementById('three-arm-play');
@@ -42,13 +46,20 @@ const varianceMarkers = {
   value: document.getElementById('variance-marker-value'),
 };
 const varianceAxes = {
-  npg: { min: 0.1, max: 10000, ticks: [0.1, 1, 10, 100, 1000, 10000] },
-  adam: { min: 0.01, max: 0.1, ticks: [0.01, 0.02, 0.05, 0.1] },
+  uniform: {
+    npg: { min: 0.1, max: 10000, ticks: [0.1, 1, 10, 100, 1000, 10000] },
+    adam: { min: 0.01, max: 0.1, ticks: [0.01, 0.02, 0.05, 0.1] },
+  },
+  orange: {
+    npg: { min: 0.1, max: 1000000, ticks: [0.1, 1, 10, 100, 1000, 10000, 100000, 1000000] },
+    adam: { min: 0.001, max: 0.1, ticks: [0.001, 0.01, 0.1] },
+  },
 };
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
 let data;
 let method = 'npg';
+let start = 'uniform';
 let coordinates;
 let step = 0;
 let timer = null;
@@ -76,8 +87,8 @@ function showTriangle() {
     markers[kind].setAttribute('cy', current.y.toFixed(2));
     trails[kind].setAttribute('d', step === 0 ? '' : linePath(coordinates[kind], step));
   }
-  const min = data.methods[method].min[step].p;
-  const value = data.methods[method].value[step].p;
+  const min = data.starts[start].methods[method].min[step].p;
+  const value = data.starts[start].methods[method].value[step].p;
   simplexDescription.textContent = `Step ${step}: minimum variance gives blue ${Math.round(min[0] * 100)}% and orange ${Math.round(min[1] * 100)}%; value baseline gives blue ${Math.round(value[0] * 100)}% and orange ${Math.round(value[1] * 100)}%.`;
 }
 
@@ -101,7 +112,7 @@ function showPanel(panel, state) {
 }
 
 function varianceY(value) {
-  const axis = varianceAxes[method];
+  const axis = varianceAxes[start][method];
   const clamped = Math.max(axis.min, Math.min(axis.max, value));
   return 172 - 150 * (Math.log10(clamped) - Math.log10(axis.min)) /
     (Math.log10(axis.max) - Math.log10(axis.min));
@@ -116,7 +127,7 @@ function formatVariance(value) {
 
 function buildVarianceGrid() {
   varianceGrid.replaceChildren();
-  for (const tick of varianceAxes[method].ticks) {
+  for (const tick of varianceAxes[start][method].ticks) {
     const y = varianceY(tick);
     const line = document.createElementNS(svgNamespace, 'line');
     line.setAttribute('x1', '50');
@@ -130,13 +141,13 @@ function buildVarianceGrid() {
     label.setAttribute('y', (y + 4).toFixed(2));
     label.setAttribute('text-anchor', 'end');
     label.setAttribute('class', 'variance-axis-label');
-    label.textContent = tick >= 1000 ? `${tick / 1000}k` : String(tick);
+    label.textContent = tick >= 1000000 ? '1m' : tick >= 1000 ? `${tick / 1000}k` : String(tick);
     varianceGrid.appendChild(label);
   }
 }
 
 function showVariance() {
-  const runs = data.methods[method];
+  const runs = data.starts[start].methods[method];
   for (const kind of kinds) {
     const states = runs[kind];
     const positions = states.map((state, index) => ({
@@ -152,7 +163,7 @@ function showVariance() {
 }
 
 function render() {
-  const runs = data.methods[method];
+  const runs = data.starts[start].methods[method];
   showPanel(panels.min, runs.min[step]);
   showPanel(panels.value, runs.value[step]);
   showTriangle();
@@ -184,26 +195,38 @@ function togglePlayback() {
   }, 80);
 }
 
-function chooseMethod(nextMethod) {
+function chooseScenario(nextStart, nextMethod) {
   pause();
+  start = nextStart;
   method = nextMethod;
   step = 0;
+  const startPoint = point(data.starts[start].policy);
+  startMarker.setAttribute('cx', startPoint.x.toFixed(2));
+  startMarker.setAttribute('cy', startPoint.y.toFixed(2));
   coordinates = {
-    min: data.methods[method].min.map(state => point(state.p)),
-    value: data.methods[method].value.map(state => point(state.p)),
+    min: data.starts[start].methods[method].min.map(state => point(state.p)),
+    value: data.starts[start].methods[method].value.map(state => point(state.p)),
   };
   for (const name of Object.keys(methodButtons)) {
     methodButtons[name].setAttribute('aria-pressed', String(name === method));
   }
+  for (const name of Object.keys(startButtons)) {
+    startButtons[name].setAttribute('aria-pressed', String(name === start));
+  }
   buildVarianceGrid();
+  const initial = start === 'uniform' ? 'uniformly (33% per arm)' : 'favoring orange (10% blue, 80% orange, 10% gray)';
   if (method === 'npg') {
-    settings.textContent = 'NPG · step size 0.15 · same random draws in both runs';
+    settings.textContent = `Starts ${initial} · NPG step size 0.15 · paired random draws`;
     varianceKind.textContent = 'Exact one-step natural-gradient variance at each policy, shown on a log scale.';
-    caption.textContent = 'This selected on-policy NPG run starts uniformly. By step 120, the minimum-variance policy almost always picks orange (expected reward 0.70), while the value-baseline policy nearly always picks blue (about 1.00). Among 1,000 simulated runs, 103 minimum-variance runs and no value-baseline runs put over 95% probability on orange at step 120. The paper proves a nonzero chance of true suboptimal convergence from a uniform start; these finite runs illustrate it.';
+    caption.textContent = start === 'uniform'
+      ? 'This selected on-policy NPG run starts uniformly. By step 120, the minimum-variance policy almost always picks orange (expected reward 0.70), while the value-baseline policy nearly always picks blue (about 1.00). Among 1,000 simulated runs, 103 minimum-variance runs and no value-baseline runs put over 95% probability on orange at step 120. The paper proves a nonzero chance of true suboptimal convergence from a uniform start; these finite runs illustrate it.'
+      : 'Starting with 80% probability on orange makes the contrast sharper. In this selected NPG run, minimum variance reaches almost 100% orange by step 120, while the value baseline reaches about 90% blue. Among 1,000 simulated runs, 267 minimum-variance runs and no value-baseline runs put over 95% probability on orange at step 120. These are finite-run counts, not asymptotic probabilities.';
   } else {
-    settings.textContent = 'Vanilla policy gradient + Adam · step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸';
+    settings.textContent = `Starts ${initial} · policy gradient + Adam step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸`;
     varianceKind.textContent = 'Exact one-step variance of the raw policy gradient fed into Adam, before its moment updates; log scale.';
-    caption.textContent = 'The Adam view uses the same uniform start and random-number seed. At step 120, both illustrated policies favor blue (about 92–93%); neither settles on orange. Among 1,000 simulated runs with these Adam settings, neither baseline put over 95% probability on orange at step 120. This is a separate empirical comparison, not the NPG convergence theorem.';
+    caption.textContent = start === 'uniform'
+      ? 'The Adam view uses the same uniform start and random-number seed. At step 120, both illustrated policies favor blue (about 92–93%); neither settles on orange. Among 1,000 simulated runs with these Adam settings, neither baseline put over 95% probability on orange at step 120. This is a separate empirical comparison, not the NPG convergence theorem.'
+      : 'With an orange-biased start, Adam can be slow too. In this selected run at step 120, minimum variance still picks orange about 98% of the time, while the value-baseline run has moved to about 44% blue. Among 1,000 simulated Adam runs, 164 minimum-variance runs versus 36 value-baseline runs put over 95% probability on orange at step 120. This finite comparison does not establish eventual convergence or failure for Adam.';
   }
   render();
   playButton.textContent = 'Play';
@@ -216,7 +239,10 @@ stepInput.addEventListener('input', () => {
   render();
 });
 for (const name of Object.keys(methodButtons)) {
-  methodButtons[name].addEventListener('click', () => chooseMethod(name));
+  methodButtons[name].addEventListener('click', () => chooseScenario(start, name));
+}
+for (const name of Object.keys(startButtons)) {
+  startButtons[name].addEventListener('click', () => chooseScenario(name, method));
 }
 
 fetch('three-arm-trajectories.json')
@@ -228,8 +254,9 @@ fetch('three-arm-trajectories.json')
     data = payload;
     stepInput.max = data.steps;
     methods.hidden = false;
+    document.getElementById('three-arm-starts').hidden = false;
     controls.hidden = false;
-    chooseMethod('npg');
+    chooseScenario('uniform', 'npg');
   })
   .catch(() => {
     // The written explanation and static figure remain available.
