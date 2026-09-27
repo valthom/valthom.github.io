@@ -1,1 +1,7 @@
-This is the source code to Jon Barron's public academic website: https://jonbarron.info/. You are welcome to clone this code for your own personal use, just please attribute the source to the original website or to this repo. If you do clone this website, feel free to add an attribution link to your own downstream website in index.html if you want.
+# Valentin Thomas's website
+
+This repository powers [valthom.github.io](https://valthom.github.io/). The homepage is `index.html`; the blog landing page is `blog/index.html`. Both use `stylesheet.css`.
+
+To publish a blog post, add an HTML page under `blog/`, then add a link to it in the `blog-archive` section of `blog/index.html` (newest first). Replace the “No posts yet” block when the first post is ready. The homepage links to the blog automatically.
+
+The site was originally based on [Jon Barron's website template](https://github.com/jonbarron/jonbarron_website).
