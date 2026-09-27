@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import random
+import json
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -17,6 +18,7 @@ BASELINES = [
     (0.4, "Higher baseline +0.4", "#167b80", "baseline-learning-high.svg"),
 ]
 OUTPUT_DIR = Path(__file__).resolve().parents[1] / "blog"
+ADAM_STEP_SIZE = 0.04
 
 
 def sigmoid(log_odds: float) -> float:
@@ -43,6 +45,41 @@ def run_bandit(baseline: float, uniforms: list[list[float]]) -> list[list[float]
             log_odds += STEP_SIZE * advantage / action_probability * (1 if blue else -1)
         curves.append(curve)
     return curves
+
+
+def run_adam(baseline: float, uniforms: list[list[float]]) -> list[list[float]]:
+    """On-policy score-function gradient, then standard bias-corrected Adam ascent."""
+    curves = []
+    for draws in uniforms:
+        theta = [0.0, 0.0]
+        first = [0.0, 0.0]
+        second = [0.0, 0.0]
+        curve = []
+        for t in range(STEPS + 1):
+            p_blue = sigmoid(theta[0] - theta[1])
+            curve.append(p_blue)
+            if t == STEPS:
+                break
+            arm = 0 if draws[t] < p_blue else 1
+            advantage = float(arm == 0) - baseline
+            probabilities = (p_blue, 1 - p_blue)
+            for j in range(2):
+                gradient = advantage * (float(arm == j) - probabilities[j])
+                first[j] = 0.9 * first[j] + 0.1 * gradient
+                second[j] = 0.999 * second[j] + 0.001 * gradient * gradient
+                corrected_first = first[j] / (1 - 0.9 ** (t + 1))
+                corrected_second = second[j] / (1 - 0.999 ** (t + 1))
+                theta[j] += ADAM_STEP_SIZE * corrected_first / (math.sqrt(corrected_second) + 1e-8)
+        curves.append(curve)
+    return curves
+
+
+def summarize(curves: list[list[float]]) -> dict:
+    return {
+        "mean": [round(sum(curve[t] for curve in curves) / RUNS, 6) for t in range(STEPS + 1)],
+        "samples": [[round(value, 6) for value in curve] for curve in curves[:100]],
+        "belowPointOne": [sum(curve[t] < 0.1 for curve in curves) for t in range(STEPS + 1)],
+    }
 
 
 def points(values: list[float], stride: int = 1) -> str:
@@ -95,8 +132,20 @@ def write_panel(curves: list[list[float]], baseline: float, label: str, color: s
 def main() -> None:
     rng = random.Random(SEED)
     uniforms = [[rng.random() for _ in range(STEPS)] for _ in range(RUNS)]
-    for baseline, label, color, filename in BASELINES:
-        write_panel(run_bandit(baseline, uniforms), baseline, label, color, filename)
+    payload = {"steps": STEPS, "runs": RUNS, "sampleRuns": 100, "seed": SEED, "methods": {}}
+    for method, simulate in (("npg", run_bandit), ("adam", run_adam)):
+        payload["methods"][method] = {"settings": {"stepSize": STEP_SIZE if method == "npg" else ADAM_STEP_SIZE}}
+        for kind, (baseline, label, color, filename) in zip(("low", "high"), BASELINES):
+            curves = simulate(baseline, uniforms)
+            payload["methods"][method][kind] = summarize(curves)
+            if method == "npg":
+                write_panel(curves, baseline, label, color, filename)
+            else:
+                print(f"Adam b={baseline:+.1f}: mean={payload['methods'][method][kind]['mean'][-1]:.3f}, "
+                      f"runs below 0.1={payload['methods'][method][kind]['belowPointOne'][-1]}/{RUNS}")
+    (OUTPUT_DIR / "two-arm-trajectories.json").write_text(
+        json.dumps(payload, separators=(",", ":")), encoding="utf-8"
+    )
 
 
 if __name__ == "__main__":
