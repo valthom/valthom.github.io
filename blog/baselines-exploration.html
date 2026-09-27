@@ -59,22 +59,41 @@
 
         <figure class="three-arm-demo" aria-labelledby="three-arm-heading">
           <h3 id="three-arm-heading">Watch one learning run</h3>
-          <p class="three-arm-intro">Both policies start with a one-third chance for each arm. Each samples its own next action from its current probabilities.</p>
+          <p class="three-arm-intro">Each point is a policy: the closer it is to a corner, the more often it chooses that arm. Both begin in the center and sample each next action from their own current probabilities.</p>
           <div class="three-arm-legend" aria-label="Rewards by arm">
             <span class="arm-best">Blue <strong>1.0</strong></span>
             <span class="arm-middle">Orange <strong>0.7</strong></span>
             <span class="arm-low">Gray <strong>0</strong></span>
           </div>
+          <svg class="three-arm-simplex" viewBox="0 0 340 300" role="img" aria-labelledby="simplex-title simplex-desc">
+            <title id="simplex-title">Three-arm policy triangle with two learning trajectories</title>
+            <desc id="simplex-desc">Both policies begin at the center, with equal probability for blue, orange, and gray. Press Play to trace minimum-variance and gap-baseline learning.</desc>
+            <polygon class="simplex-surface" points="170,38 42,252 298,252"/>
+            <path class="simplex-grid" d="M106 145H234 M106 145L170 252 M234 145L170 252"/>
+            <circle class="simplex-vertex-dot arm-best-fill" cx="170" cy="38" r="5"/>
+            <circle class="simplex-vertex-dot arm-middle-fill" cx="42" cy="252" r="5"/>
+            <circle class="simplex-vertex-dot arm-low-fill" cx="298" cy="252" r="5"/>
+            <path class="simplex-trail simplex-trail-min" id="simplex-trail-min" d=""/>
+            <path class="simplex-trail simplex-trail-gap" id="simplex-trail-gap" d=""/>
+            <circle class="simplex-start" id="simplex-start" cx="170" cy="180.7" r="7"/>
+            <circle class="simplex-marker simplex-marker-min" id="simplex-marker-min" cx="170" cy="180.7" r="8" visibility="hidden"/>
+            <circle class="simplex-marker simplex-marker-gap" id="simplex-marker-gap" cx="170" cy="180.7" r="8" visibility="hidden"/>
+            <text class="simplex-label arm-best" x="170" y="24" text-anchor="middle">Blue · 1.0</text>
+            <text class="simplex-label arm-middle" x="42" y="278" text-anchor="middle">Orange · 0.7</text>
+            <text class="simplex-label arm-low" x="298" y="278" text-anchor="middle">Gray · 0</text>
+          </svg>
+          <div class="three-arm-trail-legend" aria-label="Learning trajectories">
+            <span class="trail-min">Minimum variance</span>
+            <span class="trail-gap">Gap baseline</span>
+          </div>
           <div class="three-arm-runs">
             <div class="three-arm-run" id="three-arm-min">
               <div class="three-arm-run-heading"><strong>Minimum-variance baseline</strong><span class="baseline-value">b* = 0.57</span></div>
-              <div class="three-arm-stack" role="img" aria-label="Blue 33%, orange 33%, gray 33%"><span class="arm-best" style="width:33.333%"></span><span class="arm-middle" style="width:33.333%"></span><span class="arm-low" style="width:33.334%"></span></div>
               <div class="three-arm-numbers"><span class="arm-best">Blue <b>33%</b></span><span class="arm-middle">Orange <b>33%</b></span><span class="arm-low">Gray <b>33%</b></span></div>
               <div class="three-arm-run-footer"><span>Expected reward <strong class="three-arm-reward">0.57</strong></span><span class="three-arm-last-action">Before the first choice</span></div>
             </div>
             <div class="three-arm-run" id="three-arm-gap">
               <div class="three-arm-run-heading"><strong>Gap baseline</strong><span class="baseline-value">b = 0.85</span></div>
-              <div class="three-arm-stack" role="img" aria-label="Blue 33%, orange 33%, gray 33%"><span class="arm-best" style="width:33.333%"></span><span class="arm-middle" style="width:33.333%"></span><span class="arm-low" style="width:33.334%"></span></div>
               <div class="three-arm-numbers"><span class="arm-best">Blue <b>33%</b></span><span class="arm-middle">Orange <b>33%</b></span><span class="arm-low">Gray <b>33%</b></span></div>
               <div class="three-arm-run-footer"><span>Expected reward <strong class="three-arm-reward">0.57</strong></span><span class="three-arm-last-action">Before the first choice</span></div>
             </div>
@@ -84,7 +103,7 @@
             <label for="three-arm-step">Learning step <output id="three-arm-step-value">0 / 120</output></label>
             <input type="range" id="three-arm-step" min="0" max="120" value="0">
           </div>
-          <figcaption>This is one illustrative <em>on-policy</em> run, chosen to show the possible failure: by step 120, minimum variance favors orange (expected reward 0.70), while the gap baseline favors blue (about 1.00). Across 1,000 simulated runs with the same settings, 103 minimum-variance runs put over 95% probability on orange; none of the gap-baseline runs did. Both use natural policy gradient, a softmax policy, and step size 0.15.</figcaption>
+          <figcaption>This is one illustrative <em>on-policy</em> run, chosen to show the possible failure: by step 120, minimum variance favors orange (expected reward 0.70), while the gap baseline favors blue (about 1.00). Across 1,000 simulated runs with the same settings, 103 minimum-variance runs put over 95% probability on orange; none of the gap-baseline runs did. Both use natural policy gradient, a softmax policy, and step size 0.15; Adam is not used.</figcaption>
         </figure>
 
         <details class="baseline-math">
