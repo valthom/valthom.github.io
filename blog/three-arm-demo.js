@@ -15,6 +15,7 @@ const stepInput = document.getElementById('three-arm-step');
 const stepValue = document.getElementById('three-arm-step-value');
 const simplexDescription = document.getElementById('simplex-desc');
 const startMarker = document.getElementById('simplex-start');
+const sampleLayer = document.getElementById('simplex-samples');
 const varianceKind = document.getElementById('variance-kind');
 const varianceDescription = document.getElementById('variance-desc');
 const varianceGrid = document.getElementById('variance-grid');
@@ -22,8 +23,6 @@ const varianceReadouts = {
   min: document.getElementById('variance-min-current'),
   value: document.getElementById('variance-value-current'),
 };
-const armNames = ['Blue', 'Orange', 'Gray'];
-const armClasses = ['arm-best', 'arm-middle', 'arm-low'];
 const kinds = ['min', 'value'];
 const panels = {
   min: document.getElementById('three-arm-min'),
@@ -47,12 +46,12 @@ const varianceMarkers = {
 };
 const varianceAxes = {
   uniform: {
-    npg: { min: 0.1, max: 10000, ticks: [0.1, 1, 10, 100, 1000, 10000] },
+    npg: { min: 0.1, max: 1000000, ticks: [0.1, 1, 10, 100, 1000, 10000, 100000, 1000000] },
     adam: { min: 0.01, max: 0.1, ticks: [0.01, 0.02, 0.05, 0.1] },
   },
   orange: {
     npg: { min: 0.1, max: 1000000, ticks: [0.1, 1, 10, 100, 1000, 10000, 100000, 1000000] },
-    adam: { min: 0.001, max: 0.1, ticks: [0.001, 0.01, 0.1] },
+    adam: { min: 0.01, max: 0.1, ticks: [0.01, 0.02, 0.05, 0.1] },
   },
 };
 const svgNamespace = 'http://www.w3.org/2000/svg';
@@ -61,6 +60,7 @@ let data;
 let method = 'adam';
 let start = 'uniform';
 let coordinates;
+let sampleTrails = [];
 let step = 0;
 let timer = null;
 
@@ -80,6 +80,12 @@ function linePath(points, lastStep) {
 
 function showTriangle() {
   startMarker.setAttribute('visibility', step === 0 ? 'visible' : 'hidden');
+  for (const sample of sampleTrails) {
+    sample.path.setAttribute('d', step === 0 ? '' : linePath(sample.points, step));
+    sample.marker.setAttribute('visibility', step === 0 ? 'hidden' : 'visible');
+    sample.marker.setAttribute('cx', sample.points[step].x.toFixed(2));
+    sample.marker.setAttribute('cy', sample.points[step].y.toFixed(2));
+  }
   for (const kind of kinds) {
     const current = coordinates[kind][step];
     markers[kind].setAttribute('visibility', step === 0 ? 'hidden' : 'visible');
@@ -89,7 +95,7 @@ function showTriangle() {
   }
   const min = data.starts[start].methods[method].min[step].p;
   const value = data.starts[start].methods[method].value[step].p;
-  simplexDescription.textContent = `Step ${step}: minimum variance gives blue ${Math.round(min[0] * 100)}% and orange ${Math.round(min[1] * 100)}%; value baseline gives blue ${Math.round(value[0] * 100)}% and orange ${Math.round(value[1] * 100)}%.`;
+  simplexDescription.textContent = `Five faint trajectories per baseline, with bold pointwise averages. Step ${step}: mean minimum-variance policy gives blue ${Math.round(min[0] * 100)}% and orange ${Math.round(min[1] * 100)}%; mean value-baseline policy gives blue ${Math.round(value[0] * 100)}% and orange ${Math.round(value[1] * 100)}%.`;
 }
 
 function showPanel(panel, state) {
@@ -98,17 +104,10 @@ function showPanel(panel, state) {
     number.textContent = `${percentages[index]}%`;
   });
   panel.querySelector('.baseline-value').textContent =
-    panel === panels.min ? `b* = ${state.b.toFixed(2)}` : `V = ${state.b.toFixed(2)}`;
+    panel === panels.min ? `Mean b* = ${state.b.toFixed(2)}` : `Mean V = ${state.b.toFixed(2)}`;
   panel.querySelector('.three-arm-reward').textContent =
     (state.p[0] + 0.7 * state.p[1]).toFixed(2);
-  const action = panel.querySelector('.three-arm-last-action');
-  action.className = 'three-arm-last-action';
-  if (state.lastAction === null) {
-    action.textContent = 'Before the first choice';
-  } else {
-    action.textContent = `Just sampled ${armNames[state.lastAction].toLowerCase()}`;
-    action.classList.add(armClasses[state.lastAction]);
-  }
+  panel.querySelector('.three-arm-last-action').textContent = 'Average of 5 runs';
 }
 
 function varianceY(value) {
@@ -159,7 +158,7 @@ function showVariance() {
     varianceMarkers[kind].setAttribute('cy', positions[step].y.toFixed(2));
     varianceReadouts[kind].textContent = formatVariance(states[step].variance);
   }
-  varianceDescription.textContent = `At step ${step}, the one-step gradient variance is ${formatVariance(runs.min[step].variance)} for minimum variance and ${formatVariance(runs.value[step].variance)} for the value baseline. Logarithmic vertical scale.`;
+  varianceDescription.textContent = `At step ${step}, mean one-step gradient variance across five runs is ${formatVariance(runs.min[step].variance)} for minimum variance and ${formatVariance(runs.value[step].variance)} for the value baseline. Logarithmic vertical scale.`;
 }
 
 function render() {
@@ -207,6 +206,20 @@ function chooseScenario(nextStart, nextMethod) {
     min: data.starts[start].methods[method].min.map(state => point(state.p)),
     value: data.starts[start].methods[method].value.map(state => point(state.p)),
   };
+  sampleLayer.replaceChildren();
+  sampleTrails = [];
+  for (const kind of kinds) {
+    for (const policies of data.starts[start].methods[method].samples[kind]) {
+      const path = document.createElementNS(svgNamespace, 'path');
+      path.setAttribute('class', `simplex-sample simplex-sample-${kind}`);
+      const marker = document.createElementNS(svgNamespace, 'circle');
+      marker.setAttribute('class', `simplex-sample-dot simplex-sample-dot-${kind}`);
+      marker.setAttribute('r', '3');
+      sampleLayer.appendChild(path);
+      sampleLayer.appendChild(marker);
+      sampleTrails.push({ path, marker, points: policies.map(policy => point(policy)) });
+    }
+  }
   for (const name of Object.keys(methodButtons)) {
     methodButtons[name].setAttribute('aria-pressed', String(name === method));
   }
@@ -217,17 +230,16 @@ function chooseScenario(nextStart, nextMethod) {
   const initial = start === 'uniform' ? 'uniformly (33% per arm)' : 'favoring orange (10% blue, 80% orange, 10% gray)';
   if (method === 'npg') {
     settings.textContent = `Starts ${initial} · NPG step size 0.15 · paired random draws`;
-    varianceKind.textContent = 'Exact one-step natural-gradient variance at each policy, shown on a log scale.';
-    caption.textContent = start === 'uniform'
-      ? 'This selected on-policy NPG run starts uniformly. By step 120, the minimum-variance policy almost always picks orange (expected reward 0.70), while the value-baseline policy nearly always picks blue (about 1.00). Among 1,000 simulated runs, 103 minimum-variance runs and no value-baseline runs put over 95% probability on orange at step 120. The paper proves a nonzero chance of true suboptimal convergence from a uniform start; these finite runs illustrate it.'
-      : 'Starting with 80% probability on orange makes the contrast sharper. In this selected NPG run, minimum variance reaches almost 100% orange by step 120, while the value baseline reaches about 90% blue. Among 1,000 simulated runs, 267 minimum-variance runs and no value-baseline runs put over 95% probability on orange at step 120. These are finite-run counts, not asymptotic probabilities.';
+    varianceKind.textContent = 'Exact one-step natural-gradient variance at each learner’s policy, averaged across the five displayed runs; log scale.';
   } else {
     settings.textContent = `Starts ${initial} · policy gradient + Adam step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸`;
-    varianceKind.textContent = 'Exact one-step variance of the raw policy gradient fed into Adam, before its moment updates; log scale.';
-    caption.textContent = start === 'uniform'
-      ? 'The Adam view uses the same uniform start and random-number seed. At step 120, both illustrated policies favor blue (about 92–93%); neither settles on orange. Among 1,000 simulated runs with these Adam settings, neither baseline put over 95% probability on orange at step 120. This is a separate empirical comparison, not the NPG convergence theorem.'
-      : 'With an orange-biased start, Adam can be slow too. In this selected run at step 120, minimum variance still picks orange about 98% of the time, while the value-baseline run has moved to about 44% blue. Among 1,000 simulated Adam runs, 164 minimum-variance runs versus 36 value-baseline runs put over 95% probability on orange at step 120. This finite comparison does not establish eventual convergence or failure for Adam.';
+    varianceKind.textContent = 'Exact one-step variance of the raw policy gradient before Adam’s moment updates, averaged across the five displayed runs; log scale.';
   }
+  const runs = data.starts[start].methods[method];
+  const minBlue = Math.round(runs.min[data.steps].p[0] * 100);
+  const valueBlue = Math.round(runs.value[data.steps].p[0] * 100);
+  const counts = runs.cohortMiddleOver95;
+  caption.textContent = `Faint curves show five paired on-policy runs (seeds ${data.sampleSeeds[0]}–${data.sampleSeeds[data.sampleSeeds.length - 1]}). Bold curves and readouts average those same five runs at each step; this average need not be the path of any individual learner. At step 120, the mean policies put ${minBlue}% on blue with minimum variance and ${valueBlue}% with the value baseline. In a separate 1,000-seed cohort, ${counts.min} minimum-variance runs versus ${counts.value} value-baseline runs put over 95% on orange at step 120. These are finite-run results, not eventual-convergence claims.`;
   render();
   playButton.textContent = 'Play';
 }
