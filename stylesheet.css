@@ -580,6 +580,12 @@ span.highlight {
 .simplex-trail { fill: none; stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round; opacity: .9; }
 .simplex-trail-min { stroke: #9d4f82; }
 .simplex-trail-value { stroke: #137369; }
+.simplex-sample { fill: none; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; opacity: .24; }
+.simplex-sample-min { stroke: #9d4f82; }
+.simplex-sample-value { stroke: #137369; }
+.simplex-sample-dot { opacity: .3; }
+.simplex-sample-dot-min { fill: #9d4f82; }
+.simplex-sample-dot-value { fill: #137369; }
 .simplex-start { fill: #173842; stroke: #fff; stroke-width: 2; }
 .simplex-marker { fill: #fff; stroke-width: 4; }
 .simplex-marker-min { stroke: #9d4f82; }
