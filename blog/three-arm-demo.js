@@ -257,7 +257,7 @@ for (const name of Object.keys(startButtons)) {
   startButtons[name].addEventListener('click', () => chooseScenario(name, method));
 }
 
-fetch('three-arm-trajectories.json')
+fetch('three-arm-trajectories.json?v=5-runs')
   .then(response => {
     if (!response.ok) throw new Error('Animation data unavailable');
     return response.json();
