@@ -93,7 +93,7 @@ function toggleTwoArm() {
     twoArmStep += 1;
     showTwoArmStep();
     if (twoArmStep === twoArmData.steps) pauseTwoArm();
-  }, 100);
+  }, Math.max(25, 8000 / twoArmData.steps));
 }
 
 function chooseTwoArmMethod(method) {
@@ -105,11 +105,12 @@ function chooseTwoArmMethod(method) {
   }
   if (method === 'npg') {
     twoArmSettings.textContent = 'Starts with 50% blue · NPG step size 0.5 · paired random draws';
-    twoArmCaption.textContent = 'Faint lines show 100 example runs; thick lines average 1,000 runs per baseline. Each run samples its next button from its current policy. With NPG, the low baseline leaves 87 of 1,000 runs below 0.1 expected reward at step 60; the higher baseline leaves none. This finite simulation starts at 50% blue and uses a step size of 0.5.';
   } else {
     twoArmSettings.textContent = 'Starts with 50% blue · policy gradient + Adam step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸';
-    twoArmCaption.textContent = 'Faint lines show 100 example runs; thick lines average 1,000 runs per baseline. With Adam on the raw score-function gradient, the mean expected reward at step 60 is 0.88 for the low baseline versus 0.96 for the higher baseline. No sampled run is below 0.1 at step 60 in this setting: here the low baseline mainly slows improvement rather than producing a visible failure. Both runs start at 50% blue and use paired on-policy draws.';
   }
+  const runs = twoArmData.methods[method];
+  const last = twoArmData.steps;
+  twoArmCaption.textContent = `Faint lines show 100 example runs; thick lines average 1,000 runs per baseline. Each run samples its next button from its current policy. At step ${last}, mean expected reward is ${runs.low.mean[last].toFixed(3)} for the low baseline versus ${runs.high.mean[last].toFixed(3)} for the higher baseline. ${runs.low.belowPointOne[last]} low-baseline runs and ${runs.high.belowPointOne[last]} higher-baseline runs are below 0.1 at that step. Both start at 50% blue and use paired on-policy draws. These are finite-run results.`;
   drawTwoArmCurves();
   showTwoArmStep();
   twoArmPlay.textContent = 'Play';
@@ -125,7 +126,7 @@ for (const name of Object.keys(twoArmButtons)) {
   twoArmButtons[name].addEventListener('click', () => chooseTwoArmMethod(name));
 }
 
-fetch('two-arm-trajectories.json')
+fetch('two-arm-trajectories.json?v=300-steps')
   .then(response => {
     if (!response.ok) throw new Error('Two-arm animation data unavailable');
     return response.json();
