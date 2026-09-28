@@ -11,6 +11,7 @@ from pathlib import Path
 REWARDS = (1.0, 0.7, 0.0)
 STEPS = 120
 EXAMPLE_SEED = 109
+SAMPLE_SEEDS = tuple(range(EXAMPLE_SEED, EXAMPLE_SEED + 5))
 COHORT_SIZE = 1000
 CONFIG = {
     "npg": {"stepSize": 0.15},
@@ -116,13 +117,23 @@ def main() -> None:
         assert math.isclose(gradient_variance(uniform, method, baseline_for(uniform, method, "min")),
                             gradient_variance(uniform, method, baseline_for(uniform, method, "value")))
 
-    payload = {"rewards": REWARDS, "steps": STEPS, "exampleSeed": EXAMPLE_SEED,
+    payload = {"rewards": REWARDS, "steps": STEPS, "sampleSeeds": SAMPLE_SEEDS,
                "cohortSize": COHORT_SIZE, "starts": {}}
     for start_name, start in STARTS.items():
         start_payload = {"policy": start, "methods": {}}
         for method, settings in CONFIG.items():
-            min_states = simulate(EXAMPLE_SEED, method, "min", start)
-            value_states = simulate(EXAMPLE_SEED, method, "value", start)
+            samples = {
+                kind: [simulate(seed, method, kind, start) for seed in SAMPLE_SEEDS]
+                for kind in ("min", "value")
+            }
+            means = {
+                kind: [{
+                    "p": [round(sum(run[t]["p"][i] for run in runs) / len(runs), 6) for i in range(3)],
+                    "b": round(sum(run[t]["b"] for run in runs) / len(runs), 6),
+                    "variance": sum(run[t]["variance"] for run in runs) / len(runs),
+                } for t in range(STEPS + 1)]
+                for kind, runs in samples.items()
+            }
             cohort = {"min": 0, "value": 0}
             for seed in range(COHORT_SIZE):
                 for kind in cohort:
@@ -132,16 +143,18 @@ def main() -> None:
             start_payload["methods"][method] = {
                 "settings": settings,
                 "cohortMiddleOver95": cohort,
-                "min": min_states,
-                "value": value_states,
+                "min": means["min"],
+                "value": means["value"],
+                "samples": {kind: [[state["p"] for state in run] for run in runs]
+                            for kind, runs in samples.items()},
             }
             print(f"{start_name} {method}: middle-arm >95% at step {STEPS}: {cohort}")
-            print(f"{start_name} {method}: seed {EXAMPLE_SEED} final policies: "
-                  f"min={min_states[-1]['p']}, value={value_states[-1]['p']}")
+            print(f"{start_name} {method}: five-run mean final policies: "
+                  f"min={means['min'][-1]['p']}, value={means['value'][-1]['p']}")
         payload["starts"][start_name] = start_payload
 
     assert payload["starts"]["uniform"]["methods"]["npg"]["cohortMiddleOver95"] == {"min": 103, "value": 0}
-    assert payload["starts"]["uniform"]["methods"]["npg"]["min"][-1]["p"][1] > 0.95
+    assert payload["starts"]["uniform"]["methods"]["npg"]["samples"]["min"][0][-1][1] > 0.95
     assert payload["starts"]["uniform"]["methods"]["npg"]["value"][-1]["p"][0] > 0.95
     assert payload["starts"]["orange"]["methods"]["adam"]["cohortMiddleOver95"] == {"min": 164, "value": 36}
     OUTPUT.write_text(json.dumps(payload, separators=(",", ":")), encoding="utf-8")
