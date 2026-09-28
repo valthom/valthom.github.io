@@ -6,9 +6,9 @@
   <meta name="author" content="Valentin Thomas">
   <meta name="description" content="Why a baseline in policy gradient learning can affect exploration, commitment, and which policy an agent discovers.">
   <title>When a baseline makes an agent too sure of itself · Valentin Thomas</title>
-  <link rel="stylesheet" href="../stylesheet.css?v=5-runs">
-  <script src="three-arm-demo.js?v=5-runs" defer></script>
-  <script src="two-arm-demo.js?v=adam-default" defer></script>
+  <link rel="stylesheet" href="../stylesheet.css?v=300-steps">
+  <script src="three-arm-demo.js?v=300-steps" defer></script>
+  <script src="two-arm-demo.js?v=300-steps" defer></script>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
 </head>
 <body>
@@ -39,8 +39,8 @@
           <p>Blue pays 1; red pays 0. After a red press, a low baseline gives red a positive signal (0 − (−0.4) = +0.4). A higher baseline gives red a negative one (0 − 0.4 = −0.4). What does that mean over a whole learning run, when each next press comes from the policy the agent has learned so far?</p>
           <figure class="baseline-figure">
             <div class="baseline-plot-grid" id="two-arm-static">
-              <img src="baseline-learning-low-adam.svg" width="320" height="380" alt="With Adam and baseline minus 0.4, mean expected reward reaches 0.88 at step 60.">
-              <img src="baseline-learning-high-adam.svg" width="320" height="380" alt="With Adam and baseline plus 0.4, mean expected reward reaches 0.96 at step 60.">
+              <img src="baseline-learning-low-adam.svg" width="320" height="380" alt="With Adam and baseline minus 0.4, mean expected reward reaches 0.990 at step 300.">
+              <img src="baseline-learning-high-adam.svg" width="320" height="380" alt="With Adam and baseline plus 0.4, mean expected reward reaches 0.996 at step 300.">
             </div>
             <div id="two-arm-interactive" hidden>
               <div class="three-arm-methods" role="group" aria-label="Two-button optimization method">
@@ -55,7 +55,7 @@
                   <svg class="two-arm-chart" viewBox="0 0 320 290" role="img" aria-label="Expected reward over time for low baseline">
                     <path class="two-arm-grid" d="M42 20H292 M42 125H292 M42 230H292"/>
                     <text class="two-arm-tick" x="34" y="24" text-anchor="end">1</text><text class="two-arm-tick" x="34" y="129" text-anchor="end">0.5</text><text class="two-arm-tick" x="34" y="234" text-anchor="end">0</text>
-                    <text class="two-arm-tick" x="42" y="251" text-anchor="middle">0</text><text class="two-arm-tick" x="125" y="251" text-anchor="middle">20</text><text class="two-arm-tick" x="208" y="251" text-anchor="middle">40</text><text class="two-arm-tick" x="292" y="251" text-anchor="middle">60</text>
+                    <text class="two-arm-tick" x="42" y="251" text-anchor="middle">0</text><text class="two-arm-tick" x="125" y="251" text-anchor="middle">100</text><text class="two-arm-tick" x="208" y="251" text-anchor="middle">200</text><text class="two-arm-tick" x="292" y="251" text-anchor="middle">300</text>
                     <defs><clipPath id="two-arm-clip-low"><rect id="two-arm-clip-rect-low" x="42" y="20" width="0" height="210"/></clipPath></defs>
                     <g id="two-arm-lines-low" clip-path="url(#two-arm-clip-low)"></g>
                     <circle class="two-arm-mean-dot" id="two-arm-dot-low" cx="42" cy="125" r="5"/>
@@ -69,7 +69,7 @@
                   <svg class="two-arm-chart" viewBox="0 0 320 290" role="img" aria-label="Expected reward over time for higher baseline">
                     <path class="two-arm-grid" d="M42 20H292 M42 125H292 M42 230H292"/>
                     <text class="two-arm-tick" x="34" y="24" text-anchor="end">1</text><text class="two-arm-tick" x="34" y="129" text-anchor="end">0.5</text><text class="two-arm-tick" x="34" y="234" text-anchor="end">0</text>
-                    <text class="two-arm-tick" x="42" y="251" text-anchor="middle">0</text><text class="two-arm-tick" x="125" y="251" text-anchor="middle">20</text><text class="two-arm-tick" x="208" y="251" text-anchor="middle">40</text><text class="two-arm-tick" x="292" y="251" text-anchor="middle">60</text>
+                    <text class="two-arm-tick" x="42" y="251" text-anchor="middle">0</text><text class="two-arm-tick" x="125" y="251" text-anchor="middle">100</text><text class="two-arm-tick" x="208" y="251" text-anchor="middle">200</text><text class="two-arm-tick" x="292" y="251" text-anchor="middle">300</text>
                     <defs><clipPath id="two-arm-clip-high"><rect id="two-arm-clip-rect-high" x="42" y="20" width="0" height="210"/></clipPath></defs>
                     <g id="two-arm-lines-high" clip-path="url(#two-arm-clip-high)"></g>
                     <circle class="two-arm-mean-dot" id="two-arm-dot-high" cx="42" cy="125" r="5"/>
@@ -80,11 +80,11 @@
               </div>
               <div class="three-arm-controls" id="two-arm-controls">
                 <button type="button" id="two-arm-play">Play</button>
-                <label for="two-arm-step">Learning step <output id="two-arm-step-value">0 / 60</output></label>
-                <input type="range" id="two-arm-step" min="0" max="60" value="0">
+                <label for="two-arm-step">Learning step <output id="two-arm-step-value">0 / 300</output></label>
+                <input type="range" id="two-arm-step" min="0" max="300" value="0">
               </div>
             </div>
-            <figcaption id="two-arm-caption">Faint lines show 100 example runs; thick lines average 1,000 runs per baseline. With Adam on the raw score-function gradient, the mean expected reward at step 60 is 0.88 for the low baseline versus 0.96 for the higher baseline. No sampled run is below 0.1 at step 60 in this setting: here the low baseline mainly slows improvement rather than producing a visible failure. Both runs start at 50% blue and use paired on-policy draws.</figcaption>
+            <figcaption id="two-arm-caption">Faint lines show 100 example runs; thick lines average 1,000 runs per baseline. With Adam, mean expected reward at step 300 is 0.990 for the low baseline versus 0.996 for the higher baseline; no sampled run is below 0.1 at that step. Both start at 50% blue and sample each next action from their current policy. These are finite-run results.</figcaption>
           </figure>
         </section>
 
@@ -153,8 +153,8 @@
           </div>
           <div class="three-arm-controls" id="three-arm-controls" hidden>
             <button type="button" id="three-arm-play">Play</button>
-            <label for="three-arm-step">Learning step <output id="three-arm-step-value">0 / 120</output></label>
-            <input type="range" id="three-arm-step" min="0" max="120" value="0">
+            <label for="three-arm-step">Learning step <output id="three-arm-step-value">0 / 300</output></label>
+            <input type="range" id="three-arm-step" min="0" max="300" value="0">
           </div>
           <div class="three-arm-variance" aria-labelledby="variance-heading">
             <h4 id="variance-heading">Mean variance of the sampled gradient</h4>
@@ -168,13 +168,13 @@
               <circle class="variance-marker variance-marker-min" id="variance-marker-min" cx="50" cy="0" r="5"/>
               <circle class="variance-marker variance-marker-value" id="variance-marker-value" cx="50" cy="0" r="5"/>
               <text class="variance-axis-label" x="50" y="202" text-anchor="middle">0</text>
-              <text class="variance-axis-label" x="275" y="202" text-anchor="middle">60</text>
-              <text class="variance-axis-label" x="500" y="202" text-anchor="middle">120 steps</text>
+              <text class="variance-axis-label" x="275" y="202" text-anchor="middle">150</text>
+              <text class="variance-axis-label" x="500" y="202" text-anchor="middle">300 steps</text>
             </svg>
             <div class="variance-readouts"><span class="trail-min">Minimum variance: <strong id="variance-min-current">0.059</strong></span><span class="trail-value">Value baseline: <strong id="variance-value-current">0.059</strong></span></div>
             <p class="variance-note">We measure variance at <em>each learner's own policy</em>, then average the five values—not the variance at the average policy. “Minimum variance” only promises the smallest variance among baselines at the <em>same</em> policy, so its curve can sit above the value-baseline curve later.</p>
           </div>
-          <figcaption id="three-arm-caption">Faint curves show five paired on-policy runs (seeds 109–113); bold curves and readouts average those same five runs at each step. The average need not be the path of any individual learner. With Adam and a uniform start, both mean policies put about 93% on blue by step 120. In a separate 1,000-seed cohort, neither baseline put over 95% on orange at step 120. These are finite-run results.</figcaption>
+          <figcaption id="three-arm-caption">Faint curves show five paired on-policy runs (seeds 109–113); bold curves and readouts average those same five runs at each step. The average need not be the path of any individual learner. With Adam and a uniform start, both mean policies put about 98% on blue by step 300. In a separate 1,000-seed cohort, neither baseline put over 95% on orange at step 300. These are finite-run results.</figcaption>
         </figure>
 
         <p>Changing the optimizer changes the story. Adam does not show the same orange outcome from a uniform start in this short simulation. Starting already close to orange makes it a harder test: with the settings above, the minimum-variance baseline can keep Adam near the second-best arm much longer than the value baseline. That is an observed delay in these runs, not a theorem about Adam's eventual destination.</p>
