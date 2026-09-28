@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 REWARDS = (1.0, 0.7, 0.0)
-STEPS = 300
+STEPS = 500
 EXAMPLE_SEED = 109
 SAMPLE_SEEDS = tuple(range(EXAMPLE_SEED, EXAMPLE_SEED + 5))
 COHORT_SIZE = 1000
@@ -69,7 +69,7 @@ def gradient_variance(policy: list[float], method: str, baseline: float) -> floa
 
 
 def simulate(seed: int, method: str, baseline_kind: str, start: tuple[float, ...],
-             record: bool = True) -> list[dict] | list[float]:
+             record: bool = True, concentrated: list[int] | None = None) -> list[dict] | list[float]:
     rng = random.Random(seed)
     theta = [math.log(probability) for probability in start]
     first_moment = [0.0, 0.0, 0.0]
@@ -78,6 +78,8 @@ def simulate(seed: int, method: str, baseline_kind: str, start: tuple[float, ...
     last_action = None
     for step in range(STEPS + 1):
         policy = softmax(theta)
+        if concentrated is not None and policy[1] > 0.95:
+            concentrated[step] += 1
         baseline = baseline_for(policy, method, baseline_kind)
         if record:
             states.append({
@@ -135,14 +137,17 @@ def main() -> None:
                 for kind, runs in samples.items()
             }
             cohort = {"min": 0, "value": 0}
+            cohort_by_step = {kind: [0] * (STEPS + 1) for kind in cohort}
             for seed in range(COHORT_SIZE):
                 for kind in cohort:
-                    policy = simulate(seed, method, kind, start, record=False)
+                    policy = simulate(seed, method, kind, start, record=False,
+                                      concentrated=cohort_by_step[kind])
                     if policy[1] > 0.95:
                         cohort[kind] += 1
             start_payload["methods"][method] = {
                 "settings": settings,
                 "cohortMiddleOver95": cohort,
+                "cohortMiddleOver95ByStep": cohort_by_step,
                 "min": means["min"],
                 "value": means["value"],
                 "samples": {kind: [[state["p"] for state in run] for run in runs]
