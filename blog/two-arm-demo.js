@@ -126,7 +126,7 @@ for (const name of Object.keys(twoArmButtons)) {
   twoArmButtons[name].addEventListener('click', () => chooseTwoArmMethod(name));
 }
 
-fetch('two-arm-trajectories.json?v=300-steps')
+fetch('two-arm-trajectories.json?v=500-steps')
   .then(response => {
     if (!response.ok) throw new Error('Two-arm animation data unavailable');
     return response.json();
