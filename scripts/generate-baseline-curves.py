@@ -11,7 +11,7 @@ from xml.sax.saxutils import escape
 
 SEED = 2026
 RUNS = 1000
-STEPS = 300
+STEPS = 500
 STEP_SIZE = 0.5
 BASELINES = [
     (-0.4, "Low baseline −0.4", "#bf604d", "baseline-learning-low.svg"),
@@ -97,7 +97,7 @@ def write_panel(curves: list[list[float]], baseline: float, label: str, color: s
         y = 89 + 219 * (1 - value)
         grid.append(f'<path d="M45 {y:.1f}h253" stroke="#e3ece9"/>')
         grid.append(f'<text x="39" y="{y + 4:.1f}" class="tick" text-anchor="end">{value:g}</text>')
-    for t in (0, 100, 200, 300):
+    for t in (0, 100, 200, 300, 400, 500):
         x = 45 + 253 * t / STEPS
         grid.append(f'<text x="{x:.1f}" y="327" class="tick" text-anchor="middle">{t}</text>')
     sample_lines = "\n".join(
