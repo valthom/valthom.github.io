@@ -44,16 +44,7 @@ const varianceMarkers = {
   min: document.getElementById('variance-marker-min'),
   value: document.getElementById('variance-marker-value'),
 };
-const varianceAxes = {
-  uniform: {
-    npg: { min: 0.1, max: 1000000, ticks: [0.1, 1, 10, 100, 1000, 10000, 100000, 1000000] },
-    adam: { min: 0.01, max: 0.1, ticks: [0.01, 0.02, 0.05, 0.1] },
-  },
-  orange: {
-    npg: { min: 0.1, max: 1000000, ticks: [0.1, 1, 10, 100, 1000, 10000, 100000, 1000000] },
-    adam: { min: 0.01, max: 0.1, ticks: [0.01, 0.02, 0.05, 0.1] },
-  },
-};
+let varianceAxis;
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
 let data;
@@ -111,13 +102,14 @@ function showPanel(panel, state) {
 }
 
 function varianceY(value) {
-  const axis = varianceAxes[start][method];
+  const axis = varianceAxis;
   const clamped = Math.max(axis.min, Math.min(axis.max, value));
   return 172 - 150 * (Math.log10(clamped) - Math.log10(axis.min)) /
     (Math.log10(axis.max) - Math.log10(axis.min));
 }
 
 function formatVariance(value) {
+  if (value >= 1000000) return value.toExponential(2);
   if (value >= 1000) return Math.round(value).toLocaleString('en-US');
   if (value >= 100) return value.toFixed(0);
   if (value >= 10) return value.toFixed(1);
@@ -126,7 +118,16 @@ function formatVariance(value) {
 
 function buildVarianceGrid() {
   varianceGrid.replaceChildren();
-  for (const tick of varianceAxes[start][method].ticks) {
+  const runs = data.starts[start].methods[method];
+  const values = kinds.flatMap(kind => runs[kind].map(state => state.variance));
+  const low = Math.floor(Math.log10(Math.min(...values)));
+  const high = Math.max(low + 1, Math.ceil(Math.log10(Math.max(...values))));
+  const stride = Math.max(1, Math.ceil((high - low) / 5));
+  const ticks = [];
+  for (let exponent = low; exponent < high; exponent += stride) ticks.push(10 ** exponent);
+  ticks.push(10 ** high);
+  varianceAxis = { min: 10 ** low, max: 10 ** high, ticks };
+  for (const tick of ticks) {
     const y = varianceY(tick);
     const line = document.createElementNS(svgNamespace, 'line');
     line.setAttribute('x1', '50');
@@ -140,7 +141,7 @@ function buildVarianceGrid() {
     label.setAttribute('y', (y + 4).toFixed(2));
     label.setAttribute('text-anchor', 'end');
     label.setAttribute('class', 'variance-axis-label');
-    label.textContent = tick >= 1000000 ? '1m' : tick >= 1000 ? `${tick / 1000}k` : String(tick);
+    label.textContent = tick >= 1000000 ? tick.toExponential(0).replace('+', '') : tick >= 1000 ? `${tick / 1000}k` : String(tick);
     varianceGrid.appendChild(label);
   }
 }
@@ -191,7 +192,7 @@ function togglePlayback() {
     step += 1;
     render();
     if (step === data.steps) pause();
-  }, 80);
+  }, Math.max(25, 8000 / data.steps));
 }
 
 function chooseScenario(nextStart, nextMethod) {
@@ -239,7 +240,7 @@ function chooseScenario(nextStart, nextMethod) {
   const minBlue = Math.round(runs.min[data.steps].p[0] * 100);
   const valueBlue = Math.round(runs.value[data.steps].p[0] * 100);
   const counts = runs.cohortMiddleOver95;
-  caption.textContent = `Faint curves show five paired on-policy runs (seeds ${data.sampleSeeds[0]}–${data.sampleSeeds[data.sampleSeeds.length - 1]}). Bold curves and readouts average those same five runs at each step; this average need not be the path of any individual learner. At step 120, the mean policies put ${minBlue}% on blue with minimum variance and ${valueBlue}% with the value baseline. In a separate 1,000-seed cohort, ${counts.min} minimum-variance runs versus ${counts.value} value-baseline runs put over 95% on orange at step 120. These are finite-run results, not eventual-convergence claims.`;
+  caption.textContent = `Faint curves show five paired on-policy runs (seeds ${data.sampleSeeds[0]}–${data.sampleSeeds[data.sampleSeeds.length - 1]}). Bold curves and readouts average those same five runs at each step; this average need not be the path of any individual learner. At step ${data.steps}, the mean policies put ${minBlue}% on blue with minimum variance and ${valueBlue}% with the value baseline. In a separate 1,000-seed cohort, ${counts.min} minimum-variance runs versus ${counts.value} value-baseline runs put over 95% on orange at step ${data.steps}. These are finite-run results, not eventual-convergence claims.`;
   render();
   playButton.textContent = 'Play';
 }
@@ -257,7 +258,7 @@ for (const name of Object.keys(startButtons)) {
   startButtons[name].addEventListener('click', () => chooseScenario(name, method));
 }
 
-fetch('three-arm-trajectories.json?v=5-runs')
+fetch('three-arm-trajectories.json?v=300-steps')
   .then(response => {
     if (!response.ok) throw new Error('Animation data unavailable');
     return response.json();
