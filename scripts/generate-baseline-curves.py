@@ -11,7 +11,7 @@ from xml.sax.saxutils import escape
 
 SEED = 2026
 RUNS = 1000
-STEPS = 60
+STEPS = 300
 STEP_SIZE = 0.5
 BASELINES = [
     (-0.4, "Low baseline −0.4", "#bf604d", "baseline-learning-low.svg"),
@@ -97,7 +97,7 @@ def write_panel(curves: list[list[float]], baseline: float, label: str, color: s
         y = 89 + 219 * (1 - value)
         grid.append(f'<path d="M45 {y:.1f}h253" stroke="#e3ece9"/>')
         grid.append(f'<text x="39" y="{y + 4:.1f}" class="tick" text-anchor="end">{value:g}</text>')
-    for t in (0, 20, 40, 60):
+    for t in (0, 100, 200, 300):
         x = 45 + 253 * t / STEPS
         grid.append(f'<text x="{x:.1f}" y="327" class="tick" text-anchor="middle">{t}</text>')
     sample_lines = "\n".join(
@@ -106,7 +106,7 @@ def write_panel(curves: list[list[float]], baseline: float, label: str, color: s
     )
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 380" role="img" aria-labelledby="title desc">
 <title id="title">{escape(label)}: expected reward during on-policy learning</title>
-<desc id="desc">One hundred faint sample runs and the mean over one thousand runs. The mean expected reward at step 60 is {mean[-1]:.2f}; {trapped} of one thousand runs have expected reward below 0.1.</desc>
+<desc id="desc">One hundred faint sample runs and the mean over one thousand runs. The mean expected reward at step {STEPS} is {mean[-1]:.2f}; {trapped} of one thousand runs have expected reward below 0.1.</desc>
 <style>
   .title {{ font: 700 17px Arial, sans-serif; fill: {color}; }}
   .label {{ font: 12px Arial, sans-serif; fill: #465f64; }}
@@ -122,7 +122,7 @@ def write_panel(curves: list[list[float]], baseline: float, label: str, color: s
 <polyline points="{points(mean)}" fill="none" stroke="{color}" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/></g>
 <circle cx="298" cy="{89 + 219 * (1 - mean[-1]):.1f}" r="4" fill="{color}"/>
 <text x="170" y="347" class="label" text-anchor="middle">Learning steps</text>
-<text x="18" y="370" class="foot">Mean {mean[-1]:.2f} · {trapped}/1000 runs below 0.1 at step 60</text>
+<text x="18" y="370" class="foot">Mean {mean[-1]:.2f} · {trapped}/1000 runs below 0.1 at step {STEPS}</text>
 </svg>
 '''
     (OUTPUT_DIR / filename).write_text(svg, encoding="utf-8")
