@@ -44,6 +44,18 @@ const varianceMarkers = {
   min: document.getElementById('variance-marker-min'),
   value: document.getElementById('variance-marker-value'),
 };
+const concentrationPaths = {
+  min: document.getElementById('concentration-path-min'),
+  value: document.getElementById('concentration-path-value'),
+};
+const concentrationMarkers = {
+  min: document.getElementById('concentration-marker-min'),
+  value: document.getElementById('concentration-marker-value'),
+};
+const concentrationReadouts = {
+  min: document.getElementById('concentration-min-current'),
+  value: document.getElementById('concentration-value-current'),
+};
 let varianceAxis;
 const svgNamespace = 'http://www.w3.org/2000/svg';
 
@@ -168,8 +180,25 @@ function render() {
   showPanel(panels.value, runs.value[step]);
   showTriangle();
   showVariance();
+  showConcentration();
   stepInput.value = step;
   stepValue.textContent = `${step} / ${data.steps}`;
+}
+
+function showConcentration() {
+  const counts = data.starts[start].methods[method].cohortMiddleOver95ByStep;
+  for (const kind of kinds) {
+    const positions = counts[kind].map((count, index) => ({
+      x: 50 + 450 * index / data.steps,
+      y: 172 - 150 * count / data.cohortSize,
+    }));
+    concentrationPaths[kind].setAttribute('d', linePath(positions, step));
+    concentrationMarkers[kind].setAttribute('cx', positions[step].x.toFixed(2));
+    concentrationMarkers[kind].setAttribute('cy', positions[step].y.toFixed(2));
+    const count = counts[kind][step];
+    concentrationReadouts[kind].textContent = `${(100 * count / data.cohortSize).toFixed(1)}% (${count}/${data.cohortSize.toLocaleString('en-US')})`;
+  }
+  document.getElementById('concentration-desc').textContent = `Step ${step}: ${counts.min[step]} of ${data.cohortSize} minimum-variance seeds and ${counts.value[step]} value-baseline seeds assign over 95% probability to the suboptimal orange arm.`;
 }
 
 function pause() {
@@ -258,7 +287,7 @@ for (const name of Object.keys(startButtons)) {
   startButtons[name].addEventListener('click', () => chooseScenario(name, method));
 }
 
-fetch('three-arm-trajectories.json?v=300-steps')
+fetch('three-arm-trajectories.json?v=500-steps')
   .then(response => {
     if (!response.ok) throw new Error('Animation data unavailable');
     return response.json();
