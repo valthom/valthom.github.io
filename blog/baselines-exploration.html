@@ -7,8 +7,20 @@
   <meta name="description" content="Why a baseline in policy gradient learning can affect exploration, commitment, and which policy an agent discovers.">
   <title>When a baseline makes an agent too sure of itself · Valentin Thomas</title>
   <link rel="stylesheet" href="../stylesheet.css?v=500-steps">
-  <script src="three-arm-demo.js?v=500-steps" defer></script>
-  <script src="two-arm-demo.js?v=500-steps" defer></script>
+  <script src="three-arm-demo.js?v=adam-orange-default" defer></script>
+  <script src="two-arm-model.js?v=live-controls" defer></script>
+  <script src="two-arm-demo.js?v=live-controls" defer></script>
+  <style>
+    .two-arm-parameters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 22px; margin: 16px 0 20px; }
+    .two-arm-parameter { min-width: 0; }
+    .two-arm-parameter label { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; color: #476267; font-size: 13px; font-weight: 700; }
+    .two-arm-parameter input { display: block; width: 100%; margin: 12px 0 0; accent-color: #176d71; cursor: pointer; }
+    .two-arm-parameter output { color: #176d71; }
+    .baseline-cases { width: 100%; margin: 18px 0 24px; border-collapse: collapse; font-size: 16px; }
+    .baseline-cases th, .baseline-cases td { padding: 10px 14px; border-bottom: 1px solid #dce6e5; text-align: left; }
+    .baseline-cases th { background: #eef5f2; color: #173842; }
+    @media (max-width: 680px) { .two-arm-parameters { grid-template-columns: 1fr; gap: 20px; } }
+  </style>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌐</text></svg>">
 </head>
 <body>
@@ -26,28 +38,43 @@
         <a class="post-back" href="/blog/">← All posts</a>
         <p class="post-meta"><time datetime="2026-09-27">September 27, 2026</time> · Reinforcement learning</p>
         <h1>When a baseline makes an agent too sure of itself</h1>
-        <p class="post-deck">In policy gradients, a baseline can do more than quiet noisy updates. It can change how quickly an agent commits to what it has already tried.</p>
+        <p class="post-deck">Subtracting a baseline leaves the expected gradient unchanged. Yet its choice can determine whether an agent discovers the best action or commits to a worse one.</p>
       </header>
 
       <div class="post-body">
-        <p>Imagine an agent learning to press one of two buttons. The <strong>blue button gives it a treat</strong> every time; the <strong>red button gives it nothing</strong>. The agent does not know this yet. It has to try buttons and gradually adjust its chances of pressing each one.</p>
+        <p>Consider an agent choosing between two buttons. Blue always gives a reward of 1; red always gives a reward of 0. With deterministic rewards and no credit-assignment problem, learning which button to press should be straightforward.</p>
 
-        <p>A policy-gradient learner updates itself using the reward from the button it pressed, compared with a reference point called a <em>baseline</em>. The signal is simply <strong>reward minus baseline</strong>. Baselines are usually introduced as a way to make these updates less noisy. That story is true, but it misses what happens along one particular learning journey.</p>
+        <p>Can a policy-gradient algorithm nevertheless learn to press the red button forever?</p>
+
+        <p>For on-policy natural policy gradient, the answer is yes. Whether this happens can depend on the <em>baseline</em>, a choice usually motivated by variance reduction and thought to affect learning speed rather than the final solution.</p>
+
+        <p>In this post, we show that the baseline plays a central role in exploration and exploitation, beyond its effect on gradient variance.</p>
 
         <section class="post-example" aria-labelledby="example-heading">
-          <h2 id="example-heading">Two reference points, two reactions</h2>
-          <p>Blue pays 1; red pays 0. After a red press, a low baseline gives red a positive signal (0 − (−0.4) = +0.4). A higher baseline gives red a negative one (0 − 0.4 = −0.4). What does that mean over a whole learning run, when each next press comes from the policy the agent has learned so far?</p>
+          <h2 id="example-heading">Two buttons, two different learning outcomes</h2>
+          <p>The agent samples from its current policy. Follow the individual runs: some learn blue, while others become increasingly likely to choose red.</p>
           <figure class="baseline-figure">
             <div class="baseline-plot-grid" id="two-arm-static">
-              <img src="baseline-learning-low-adam.svg?v=500-steps" width="320" height="380" alt="With Adam and baseline minus 0.4, mean expected reward reaches 0.995 at step 500.">
-              <img src="baseline-learning-high-adam.svg?v=500-steps" width="320" height="380" alt="With Adam and baseline plus 0.4, mean expected reward reaches 0.998 at step 500.">
+              <img src="baseline-learning-low-adam.svg?v=adam-15-default" width="320" height="380" alt="With Adam, 15% initial probability on blue, learning rate 0.05 and baseline minus 0.4, mean expected reward reaches 0.931 at step 500.">
+              <img src="baseline-learning-high-adam.svg?v=adam-15-default" width="320" height="380" alt="With Adam, 15% initial probability on blue, learning rate 0.05 and baseline plus 0.4, mean expected reward reaches 0.998 at step 500.">
             </div>
             <div id="two-arm-interactive" hidden>
-              <div class="three-arm-methods" role="group" aria-label="Two-button optimization method">
+              <div class="three-arm-methods" role="group" aria-label="Two-arm optimization method">
                 <button type="button" id="two-arm-method-npg" aria-pressed="false">Natural policy gradient</button>
                 <button type="button" id="two-arm-method-adam" aria-pressed="true">Policy gradient + Adam</button>
+                <button type="button" id="two-arm-reset">Reset settings</button>
               </div>
-              <p class="three-arm-settings" id="two-arm-settings">Starts with 50% blue · policy gradient + Adam step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸</p>
+              <div class="two-arm-parameters">
+                <div class="two-arm-parameter">
+                  <label for="two-arm-start">Initial probability of blue <output id="two-arm-start-value">15% blue · 85% red</output></label>
+                  <input type="range" id="two-arm-start" min="1" max="99" step="1" value="15">
+                </div>
+                <div class="two-arm-parameter">
+                  <label for="two-arm-rate">Learning rate <output id="two-arm-rate-value">0.05</output></label>
+                  <input type="range" id="two-arm-rate" min="0.001" max="0.2" step="0.001" value="0.05">
+                </div>
+              </div>
+              <p class="three-arm-settings" id="two-arm-settings">Paired random draws · Adam β₁ = 0.9, β₂ = 0.999, ε = 10⁻⁸</p>
               <div class="baseline-plot-grid">
                 <div class="two-arm-panel two-arm-panel-low">
                   <h3>Low baseline −0.4</h3>
@@ -58,10 +85,10 @@
                     <text class="two-arm-tick" x="42" y="251" text-anchor="middle">0</text><text class="two-arm-tick" x="92" y="251" text-anchor="middle">100</text><text class="two-arm-tick" x="142" y="251" text-anchor="middle">200</text><text class="two-arm-tick" x="192" y="251" text-anchor="middle">300</text><text class="two-arm-tick" x="242" y="251" text-anchor="middle">400</text><text class="two-arm-tick" x="292" y="251" text-anchor="middle">500</text>
                     <defs><clipPath id="two-arm-clip-low"><rect id="two-arm-clip-rect-low" x="42" y="20" width="0" height="210"/></clipPath></defs>
                     <g id="two-arm-lines-low" clip-path="url(#two-arm-clip-low)"></g>
-                    <circle class="two-arm-mean-dot" id="two-arm-dot-low" cx="42" cy="125" r="5"/>
+                    <circle class="two-arm-mean-dot" id="two-arm-dot-low" cx="42" cy="198.5" r="5"/>
                     <text class="two-arm-axis-title" x="167" y="278" text-anchor="middle">Learning steps</text>
                   </svg>
-                  <p class="two-arm-readout" id="two-arm-readout-low">Mean reward 0.50 · 0/1,000 runs below 0.1</p>
+                  <p class="two-arm-readout" id="two-arm-readout-low">Mean reward 0.15 · 0/1,000 runs below 0.1</p>
                 </div>
                 <div class="two-arm-panel two-arm-panel-high">
                   <h3>Higher baseline +0.4</h3>
@@ -72,10 +99,10 @@
                     <text class="two-arm-tick" x="42" y="251" text-anchor="middle">0</text><text class="two-arm-tick" x="92" y="251" text-anchor="middle">100</text><text class="two-arm-tick" x="142" y="251" text-anchor="middle">200</text><text class="two-arm-tick" x="192" y="251" text-anchor="middle">300</text><text class="two-arm-tick" x="242" y="251" text-anchor="middle">400</text><text class="two-arm-tick" x="292" y="251" text-anchor="middle">500</text>
                     <defs><clipPath id="two-arm-clip-high"><rect id="two-arm-clip-rect-high" x="42" y="20" width="0" height="210"/></clipPath></defs>
                     <g id="two-arm-lines-high" clip-path="url(#two-arm-clip-high)"></g>
-                    <circle class="two-arm-mean-dot" id="two-arm-dot-high" cx="42" cy="125" r="5"/>
+                    <circle class="two-arm-mean-dot" id="two-arm-dot-high" cx="42" cy="198.5" r="5"/>
                     <text class="two-arm-axis-title" x="167" y="278" text-anchor="middle">Learning steps</text>
                   </svg>
-                  <p class="two-arm-readout" id="two-arm-readout-high">Mean reward 0.50 · 0/1,000 runs below 0.1</p>
+                  <p class="two-arm-readout" id="two-arm-readout-high">Mean reward 0.15 · 0/1,000 runs below 0.1</p>
                 </div>
               </div>
               <div class="three-arm-controls" id="two-arm-controls">
@@ -84,34 +111,105 @@
                 <input type="range" id="two-arm-step" min="0" max="500" value="0">
               </div>
             </div>
-            <figcaption id="two-arm-caption">Faint lines show 100 example runs; thick lines average 1,000 runs per baseline. With Adam, mean expected reward at step 500 is 0.995 for the low baseline versus 0.998 for the higher baseline; no sampled run is below 0.1 at that step. Both start at 50% blue and sample each next action from their current policy. These are finite-run results.</figcaption>
+            <figcaption id="two-arm-caption">Faint lines show 100 runs; thick lines average 1,000 runs per baseline. Each action is sampled on-policy. The sliders reuse the same paired random draws.</figcaption>
           </figure>
         </section>
 
-        <p>With the low baseline, even a disappointing red press gets reinforced. If the agent happens to press red a few times early on, red becomes more likely each time. Blue becomes rarer, so the agent gets fewer chances to discover that blue was better all along. Its own decisions determine what evidence it will see next.</p>
+        <p>For a sampled action <em>a</em>, ordinary policy gradient uses the ascent direction:</p>
 
-        <p>With the higher baseline, a red press moves the agent away from red. It leaves the door open for more blue presses. The difference is less about one update than about the <strong>feedback loop</strong>: try a button, change the policy, then collect the next experience using that changed policy.</p>
+        <div class="math-line">G(a) = (<span class="math-reward">r(a)</span> − <span class="math-baseline">b</span>) ∇<sub>θ</sub> log π<sub>θ</sub>(a).</div>
 
-        <h2>But isn't the average update the same?</h2>
-        <p>Yes. At a fixed policy, subtracting either baseline leaves the <em>expected</em> policy gradient unchanged. Averaged over possible button presses, both point toward blue. But a learner lives through one sequence of presses, not the average of every possible sequence. An unlucky early streak can make the better button so unlikely that the corrective evidence almost never arrives.</p>
+        <p>The score gradient points toward making <em>a</em> more likely. Reward minus baseline determines whether we follow or oppose that direction:</p>
 
-        <p>In our <a href="https://arxiv.org/abs/2008.13773">ICML 2021 paper</a>, we call quick reinforcement of the sampled action <em>committal</em> behaviour. A less committal update keeps alternatives in play for longer. That is why the baseline is tied to exploration and exploitation: it affects how quickly the learner acts as though its early experience has settled the question.</p>
+        <table class="baseline-cases" aria-label="How the baseline changes the sampled gradient">
+          <thead><tr><th scope="col">Observed reward</th><th scope="col">Gradient contribution</th></tr></thead>
+          <tbody>
+            <tr><td>r(a) &gt; b</td><td>Reinforce the sampled action, encouraging repetition</td></tr>
+            <tr><td>r(a) &lt; b</td><td>Discourage the sampled action, shifting probability toward alternatives</td></tr>
+            <tr><td>r(a) = b</td><td>No contribution</td></tr>
+          </tbody>
+        </table>
 
-        <h2>Why variance alone does not settle it</h2>
-        <p>The two-button story is only the beginning. Give the agent three choices: <span class="math-best">blue pays 1</span>, <span class="math-middle">orange pays 0.7</span>, and <span class="math-low">gray pays 0</span>. The baseline that minimizes a natural-gradient update's variance can still let the agent settle on orange. The <em>value baseline</em>—the current policy's expected reward—adapts as the policy changes and helps it keep exploring.</p>
+        <p>Viewed this way, the baseline sets a <em>standard</em> for what counts as a satisfactory reward. If that standard is too low, even a poor action can exceed it: with a negative baseline, red’s zero reward becomes a positive learning signal. Raising the baseline between the two rewards makes red disappointing while blue remains worth reinforcing. With two buttons, discouraging one favors the other; with more actions, the increased probability of alternatives need not be shared across all of them. These signs describe the sampled gradient; Adam also depends on accumulated moments.</p>
+
+        <p>The baseline can therefore shift the balance between <em>exploitation and exploration</em>. A low standard encourages repetition of current choices; a higher one more often discourages them, creating opportunities to try alternatives. With a low baseline, a streak of red samples can reinforce itself: red becomes more likely, blue is sampled less, and opportunities to correct the policy become rarer. We call this <em>committal</em> behavior in our <a href="https://proceedings.mlr.press/v139/chung21a.html">ICML 2021 paper</a>.</p>
+
+        <h2>An unbiased gradient can still lead to the wrong policy</h2>
+        <p>But how is this compatible with the expected gradient being unchanged?</p>
+
+        <p>For a fixed policy and an action-independent baseline <em>b</em>, treated as a constant when differentiating, the expected gradient is the same with or without the baseline:</p>
+
+        <div class="math-line">E<sub>a ∼ π<sub>θ</sub></sub>[(r(a) − b) ∇<sub>θ</sub> log π<sub>θ</sub>(a)] = E<sub>a ∼ π<sub>θ</sub></sub>[r(a) ∇<sub>θ</sub> log π<sub>θ</sub>(a)].</div>
+
+        <details class="baseline-math">
+          <summary>Why does the baseline leave the expected gradient unchanged?</summary>
+          <div class="baseline-math-content">
+            <p>Expanding the expectation for an action-independent baseline <em>b</em> separates the reward and baseline terms:</p>
+            <div class="math-line">E[(r(a) − b) ∇<sub>θ</sub> log π<sub>θ</sub>(a)]<br>= Σ<sub>a</sub> π<sub>θ</sub>(a) r(a) ∇<sub>θ</sub> log π<sub>θ</sub>(a) − b Σ<sub>a</sub> π<sub>θ</sub>(a) ∇<sub>θ</sub> log π<sub>θ</sub>(a).</div>
+            <p>Using π<sub>θ</sub>(a) ∇<sub>θ</sub> log π<sub>θ</sub>(a) = ∇<sub>θ</sub> π<sub>θ</sub>(a), the second sum becomes:</p>
+            <div class="math-line">Σ<sub>a</sub> π<sub>θ</sub>(a) ∇<sub>θ</sub> log π<sub>θ</sub>(a)<br>= ∇<sub>θ</sub> Σ<sub>a</sub> π<sub>θ</sub>(a) = ∇<sub>θ</sub> 1 = 0.</div>
+            <p>The first sum is the gradient of expected reward. Therefore:</p>
+            <div class="math-line">E[(r(a) − b) ∇<sub>θ</sub> log π<sub>θ</sub>(a)]<br>= ∇<sub>θ</sub> Σ<sub>a</sub> π<sub>θ</sub>(a) r(a) = ∇<sub>θ</sub> J(θ).</div>
+            <p>In an MDP, the cancellation applies conditionally at each state, allowing a baseline <em>b(s)</em>. A baseline that depends on policy parameters must still be held constant inside this estimator.</p>
+          </div>
+        </details>
+        <p>The identity compares estimators at the <em>same policy</em>; applying the same natural-gradient preconditioner preserves that equality. But after different sampled updates, the learners can have different policies and therefore collect different data. Equal expected directions at a given policy do not imply equal learning trajectories.</p>
+        <p>With natural policy gradient, a rare blue sample can produce a large corrective update, keeping the expected direction favorable. But if blue becomes sufficiently rare, a particular run may never receive that correction.</p>
+
+        <p>For the two-arm natural-gradient setting, we prove that a fixed negative baseline gives a strictly positive probability of choosing red forever. The Adam animations illustrate finite-time behavior; they do not establish this asymptotic claim.</p>
+
+        <h2>The limits of variance reduction</h2>
+        <p>Perhaps the low baseline simply produces too much noise. Would minimizing the variance of the gradient estimator prevent the agent from making these bad updates?</p>
+
+        <p>During my internship at Google Brain Montréal, I noticed that symmetric perturbations of the minimum-variance baseline increased variance by the same amount, but had asymmetric effects on performance. The direction of the perturbation appeared to matter.</p>
+
+        <p>Let <em>b*</em> minimize the total variance of the sampled gradient estimator <em>G(b)</em>. Since variance is quadratic in the baseline, symmetric perturbations around its minimum give:</p>
+
+        <div class="math-line">Var[G(b* − ε)] = Var[G(b* + ε)].</div>
+
+        <p>This equality holds at a fixed policy, using the same gradient estimator and norm. Once the learning trajectories diverge, their variances can differ too.</p>
+
+        <details class="baseline-math">
+          <summary>How do we derive the minimum-variance baseline?</summary>
+          <div class="baseline-math-content">
+            <p>For ordinary policy gradient, sampling arm <em>i</em> gives the gradient estimate:</p>
+            <div class="math-line">G<sub>i</sub>(b) = (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b</span>) ∇<sub>θ</sub> log π<sub>θ</sub>(i).</div>
+            <p>As derived above, the expected gradient does not depend on <span class="math-baseline">b</span>. The mean term in the variance is therefore constant with respect to the baseline, and we only need to minimize the second moment:</p>
+            <div class="math-line">Σ<sub>i</sub> π<sub>θ</sub>(i) (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b</span>)<sup>2</sup> ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup>.</div>
+            <p>Differentiate with respect to <span class="math-baseline">b</span> and set the result to zero:</p>
+            <div class="math-line">−2 Σ<sub>i</sub> π<sub>θ</sub>(i) (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b*</span>) ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup> = 0.</div>
+            <p>Solving gives a weighted average of rewards, with more weight on actions whose score vectors have larger squared norms:</p>
+            <div class="math-line"><span class="math-baseline">b*</span> = [Σ<sub>i</sub> π<sub>θ</sub>(i) <span class="math-reward">r<sub>i</sub></span> ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup>] / [Σ<sub>i</sub> π<sub>θ</sub>(i) ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup>].</div>
+            <p>This is why the variance-minimizing baseline generally differs from the value baseline: expected reward weights actions only by their probability. For the natural-gradient view, replace the score vector with the natural-gradient direction. In this three-arm softmax example, the resulting weights are proportional to 1/π<sub>i</sub>. “Minimum variance” therefore depends on which gradient and parameter-space norm we measure. In the Adam view, it refers to the raw gradient before Adam's moment updates.</p>
+          </div>
+        </details>
+
+        <p>Nevertheless, these symmetric perturbations produced qualitatively different learning paths. Matching the expected gradient and total variance did not capture the tendency to commit.</p>
+
+        <p>Although minimizing variance solves the two-arm example, it can fail with three arms. We construct a bandit where natural policy gradient with the <em>minimum-variance baseline itself</em> can converge to a suboptimal policy, while another baseline with larger variance guarantees convergence to the optimal one.</p>
+
+        <h2>What makes the value baseline useful?</h2>
+
+        <p>How should we choose this standard when we do not yet know which actions are good?</p>
+
+        <p>In our toy examples, we can place a baseline between the rewards because we already know which actions are better. In a realistic task, the agent must discover what constitutes a good outcome through experience, often while learning its baseline from that same experience. Exceeding a low standard does not establish that an action is better than alternatives the agent has not yet explored.</p>
+
+        <p>A common choice is the value function. In a bandit, this is the policy’s expected reward, <em>V<sup>π</sup> = Σ<sub>i</sub> π(i) r<sub>i</sub></em>, generally different from <em>b*</em>. Actions above that average receive a positive signal; those below it receive a negative one. This reference point changes as the policy improves.</p>
+
+        <p>The next animation compares the minimum-variance and value baselines, whose variances need not match. Orange is better than gray, but still suboptimal. If the baseline stays below orange’s reward, sampling it can reinforce an early commitment. Can the value baseline help the agent move beyond this second-best action?</p>
 
         <figure class="three-arm-demo" aria-labelledby="three-arm-heading">
           <h3 id="three-arm-heading">Watch five learning runs</h3>
-          <p class="three-arm-intro">Each point is a policy: the closer it is to a corner, the more often it chooses that arm. Faint curves show five runs per baseline; bold curves show their pointwise average. Each learner samples its next action from its own current probabilities.</p>
+          <p class="three-arm-intro">Each point is a policy; corners correspond to choosing one arm exclusively. Faint paths show five runs per baseline; bold paths show their mean, which need not follow any individual run.</p>
           <div class="three-arm-methods" id="three-arm-starts" role="group" aria-label="Starting policy" hidden>
-            <button type="button" id="three-arm-start-uniform" aria-pressed="true">Uniform start</button>
-            <button type="button" id="three-arm-start-orange" aria-pressed="false">80% orange start</button>
+            <button type="button" id="three-arm-start-uniform" aria-pressed="false">Uniform start</button>
+            <button type="button" id="three-arm-start-orange" aria-pressed="true">80% orange start</button>
           </div>
           <div class="three-arm-methods" id="three-arm-methods" role="group" aria-label="Optimization method" hidden>
             <button type="button" id="three-arm-method-npg" aria-pressed="false">Natural policy gradient</button>
             <button type="button" id="three-arm-method-adam" aria-pressed="true">Policy gradient + Adam</button>
           </div>
-          <p class="three-arm-settings" id="three-arm-settings">Starts uniformly (33% per arm) · policy gradient + Adam step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸</p>
+          <p class="three-arm-settings" id="three-arm-settings">Starts favoring orange (10% blue, 80% orange, 10% gray) · policy gradient + Adam step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸</p>
           <div class="three-arm-legend" aria-label="Rewards by arm">
             <span class="arm-best">Blue <strong>1.0</strong></span>
             <span class="arm-middle">Orange <strong>0.7</strong></span>
@@ -128,7 +226,7 @@
             <g id="simplex-samples"></g>
             <path class="simplex-trail simplex-trail-min" id="simplex-trail-min" d=""/>
             <path class="simplex-trail simplex-trail-value" id="simplex-trail-value" d=""/>
-            <circle class="simplex-start" id="simplex-start" cx="170" cy="180.7" r="7"/>
+            <circle class="simplex-start" id="simplex-start" cx="80.4" cy="230.6" r="7"/>
             <circle class="simplex-marker simplex-marker-min" id="simplex-marker-min" cx="170" cy="180.7" r="8" visibility="hidden"/>
             <circle class="simplex-marker simplex-marker-value" id="simplex-marker-value" cx="170" cy="180.7" r="8" visibility="hidden"/>
             <text class="simplex-label arm-best" x="170" y="24" text-anchor="middle">Blue · 1.0</text>
@@ -141,14 +239,14 @@
           </div>
           <div class="three-arm-runs">
             <div class="three-arm-run" id="three-arm-min">
-              <div class="three-arm-run-heading"><strong>Minimum-variance baseline</strong><span class="baseline-value">Mean b* = 0.57</span></div>
-              <div class="three-arm-numbers"><span class="arm-best">Blue <b>33%</b></span><span class="arm-middle">Orange <b>33%</b></span><span class="arm-low">Gray <b>33%</b></span></div>
-              <div class="three-arm-run-footer"><span>Mean reward <strong class="three-arm-reward">0.57</strong></span><span class="three-arm-last-action">Average of 5 runs</span></div>
+              <div class="three-arm-run-heading"><strong>Minimum-variance baseline</strong><span class="baseline-value">Mean b* = 0.53</span></div>
+              <div class="three-arm-numbers"><span class="arm-best">Blue <b>10%</b></span><span class="arm-middle">Orange <b>80%</b></span><span class="arm-low">Gray <b>10%</b></span></div>
+              <div class="three-arm-run-footer"><span>Mean reward <strong class="three-arm-reward">0.66</strong></span><span class="three-arm-last-action">Average of 5 runs</span></div>
             </div>
             <div class="three-arm-run" id="three-arm-value">
-              <div class="three-arm-run-heading"><strong>Value baseline</strong><span class="baseline-value">Mean V = 0.57</span></div>
-              <div class="three-arm-numbers"><span class="arm-best">Blue <b>33%</b></span><span class="arm-middle">Orange <b>33%</b></span><span class="arm-low">Gray <b>33%</b></span></div>
-              <div class="three-arm-run-footer"><span>Mean reward <strong class="three-arm-reward">0.57</strong></span><span class="three-arm-last-action">Average of 5 runs</span></div>
+              <div class="three-arm-run-heading"><strong>Value baseline</strong><span class="baseline-value">Mean V = 0.66</span></div>
+              <div class="three-arm-numbers"><span class="arm-best">Blue <b>10%</b></span><span class="arm-middle">Orange <b>80%</b></span><span class="arm-low">Gray <b>10%</b></span></div>
+              <div class="three-arm-run-footer"><span>Mean reward <strong class="three-arm-reward">0.66</strong></span><span class="three-arm-last-action">Average of 5 runs</span></div>
             </div>
           </div>
           <div class="three-arm-controls" id="three-arm-controls" hidden>
@@ -175,14 +273,14 @@
               <text class="variance-axis-label" x="500" y="202" text-anchor="middle">500 steps</text>
             </svg>
             <div class="variance-readouts"><span class="trail-min">Minimum variance: <strong id="concentration-min-current">0.0% (0/1,000)</strong></span><span class="trail-value">Value baseline: <strong id="concentration-value-current">0.0% (0/1,000)</strong></span></div>
-            <p class="variance-note">This is the proportion at each step, not the proportion that ever crossed the threshold. It can fall as seeds recover. Being concentrated here does not establish that a seed is permanently stuck. These 1,000 seeds are separate from the five runs shown in the triangle.</p>
+            <p class="variance-note">Measured at each step, so the curve can fall when runs recover. Crossing the threshold does not establish permanent failure.</p>
           </div>
           <div class="three-arm-variance" aria-labelledby="variance-heading">
             <h4 id="variance-heading">Mean variance of the sampled gradient</h4>
-            <p id="variance-kind">Exact one-step variance of the raw policy gradient before Adam's moment updates, averaged across the five displayed runs; log scale.</p>
+            <p id="variance-kind">Raw-gradient variance before Adam; log scale.</p>
             <svg class="variance-chart" viewBox="0 0 560 215" role="img" aria-labelledby="variance-title variance-desc">
               <title id="variance-title">Gradient variance over learning steps</title>
-              <desc id="variance-desc">The two baselines have equal gradient variance at the uniform starting policy. Press Play to reveal each variance curve.</desc>
+              <desc id="variance-desc">The two baselines start with 80% probability on orange. The minimum-variance baseline minimizes raw-gradient variance at each policy. Press Play to reveal each variance curve.</desc>
               <g id="variance-grid"></g>
               <path class="variance-path variance-path-min" id="variance-path-min" d=""/>
               <path class="variance-path variance-path-value" id="variance-path-value" d=""/>
@@ -193,32 +291,30 @@
               <text class="variance-axis-label" x="500" y="202" text-anchor="middle">500 steps</text>
             </svg>
             <div class="variance-readouts"><span class="trail-min">Minimum variance: <strong id="variance-min-current">0.059</strong></span><span class="trail-value">Value baseline: <strong id="variance-value-current">0.059</strong></span></div>
-            <p class="variance-note">We measure variance at <em>each learner's own policy</em>, then average the five values—not the variance at the average policy. “Minimum variance” only promises the smallest variance among baselines at the <em>same</em> policy, so its curve can sit above the value-baseline curve later.</p>
+            <p class="variance-note">Each curve averages variance at the learners’ own policies. Minimum variance is a comparison at a <em>fixed policy</em>; its curve can rise above the value-baseline curve once their policies differ.</p>
           </div>
-          <figcaption id="three-arm-caption">Faint curves show five paired on-policy runs (seeds 109–113); bold curves and readouts average those same five runs at each step. The average need not be the path of any individual learner. With Adam and a uniform start, both mean policies put about 99% on blue by step 500. In a separate 1,000-seed cohort, neither baseline put over 95% on orange at step 500. These are finite-run results.</figcaption>
+          <figcaption id="three-arm-caption">Paired seeds 109–113. The orange-concentration chart uses a separate cohort of 1,000 runs.</figcaption>
         </figure>
 
-        <p>Changing the optimizer changes the story. Adam does not show the same orange outcome from a uniform start in this short simulation. Starting already close to orange makes it a harder test: with the settings above, the minimum-variance baseline can keep Adam near the second-best arm much longer than the value baseline. That is an observed delay in these runs, not a theorem about Adam's eventual destination.</p>
-
         <details class="baseline-math">
-          <summary>How do we derive the minimum-variance baseline?</summary>
+          <summary>How does the optimizer affect these examples?</summary>
           <div class="baseline-math-content">
-            <p>For ordinary policy gradient, sampling arm <em>i</em> gives the gradient estimate:</p>
-            <div class="math-line">G<sub>i</sub>(b) = (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b</span>) ∇<sub>θ</sub> log π<sub>θ</sub>(i).</div>
-            <p>Subtracting <span class="math-baseline">b</span> leaves the expected gradient unchanged, because Σ<sub>i</sub> π<sub>θ</sub>(i) ∇<sub>θ</sub> log π<sub>θ</sub>(i) = ∇<sub>θ</sub> Σ<sub>i</sub> π<sub>θ</sub>(i) = 0. The mean term in the variance therefore does not depend on <span class="math-baseline">b</span>. We only need to minimize the second moment:</p>
-            <div class="math-line">Σ<sub>i</sub> π<sub>θ</sub>(i) (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b</span>)<sup>2</sup> ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup>.</div>
-            <p>Differentiate with respect to <span class="math-baseline">b</span> and set the result to zero:</p>
-            <div class="math-line">−2 Σ<sub>i</sub> π<sub>θ</sub>(i) (<span class="math-reward">r<sub>i</sub></span> − <span class="math-baseline">b*</span>) ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup> = 0.</div>
-            <p>Solving for the baseline gives:</p>
-            <div class="math-line"><span class="math-baseline">b*</span> = [Σ<sub>i</sub> π<sub>θ</sub>(i) <span class="math-reward">r<sub>i</sub></span> ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup>] / [Σ<sub>i</sub> π<sub>θ</sub>(i) ‖∇<sub>θ</sub> log π<sub>θ</sub>(i)‖<sup>2</sup>].</div>
+            <p>Optimizer choice matters. From a uniform start, both Adam baselines learn the best arm reliably in these runs. Favoring the second-best arm exposes a much longer delay with the minimum-variance baseline.</p>
+            <p>Adam rescales gradients using accumulated moments. Equality of the expected raw gradients therefore does not imply equality of the expected parameter updates.</p>
           </div>
         </details>
 
-        <p>This is not a rule to always choose a larger baseline. A learner that never commits has its own problems, and the precise results depend on the algorithm and setting. The useful shift in perspective is to ask what a baseline makes the agent do <em>after each experience</em>, and how that changes the experiences available later.</p>
+        <h2>Revisiting the usual explanation</h2>
 
-        <p>Our <a href="https://openreview.net/pdf?id=XzeTJBq1Ce2">NeurIPS 2022 follow-up</a> develops the story further, including why the value function is a particularly useful reference point under its assumptions. The broad lesson remains simple: in learning from your own actions, a baseline can change more than the noise. It can change when you decide you have seen enough.</p>
+        <p>What does this change about the usual justification for value baselines?</p>
 
-        <aside class="post-note"><strong>Scope:</strong> The sharp counterexamples in the ICML paper concern particular policy-gradient methods in small bandit problems. They do not imply that every negative baseline traps every RL agent.</aside>
+        <p>The usual justification is that the value function approximates the minimum-variance baseline. Our examples suggest a broader explanation: a baseline also affects how quickly the policy commits and whether it continues sampling alternatives.</p>
+
+        <p>Our <a href="https://proceedings.neurips.cc/paper_files/paper/2022/hash/718d02a76d69686a36eccc8cde3e6a41-Abstract-Conference.html">NeurIPS 2022 follow-up</a> establishes convergence guarantees for on-policy natural policy gradient with the true value baseline in tabular settings. The baseline prevents the optimal action’s probability from vanishing, maintaining exploration even though gradient variance can remain unbounded.</p>
+
+        <p>Could an inaccurate critic reinforce a suboptimal action until alternatives become too rare to correct it?</p>
+
+        <p>For actor–critic methods, tracking advantage signs and individual policy trajectories can reveal behavior that average return and gradient variance conceal. The bandit analysis motivates these diagnostics; their implications depend on the actual updates used.</p>
       </div>
     </article>
     <footer class="blog-footer"><a href="/blog/">← Back to the blog</a></footer>

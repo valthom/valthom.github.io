@@ -61,7 +61,7 @@ const svgNamespace = 'http://www.w3.org/2000/svg';
 
 let data;
 let method = 'adam';
-let start = 'uniform';
+let start = 'orange';
 let coordinates;
 let sampleTrails = [];
 let step = 0;
@@ -228,7 +228,7 @@ function chooseScenario(nextStart, nextMethod) {
   pause();
   start = nextStart;
   method = nextMethod;
-  step = 0;
+  step = data.steps;
   const startPoint = point(data.starts[start].policy);
   startMarker.setAttribute('cx', startPoint.x.toFixed(2));
   startMarker.setAttribute('cy', startPoint.y.toFixed(2));
@@ -260,18 +260,14 @@ function chooseScenario(nextStart, nextMethod) {
   const initial = start === 'uniform' ? 'uniformly (33% per arm)' : 'favoring orange (10% blue, 80% orange, 10% gray)';
   if (method === 'npg') {
     settings.textContent = `Starts ${initial} · NPG step size 0.15 · paired random draws`;
-    varianceKind.textContent = 'Exact one-step natural-gradient variance at each learner’s policy, averaged across the five displayed runs; log scale.';
+    varianceKind.textContent = 'Natural-gradient variance; log scale.';
   } else {
     settings.textContent = `Starts ${initial} · policy gradient + Adam step size 0.04 · β₁ = 0.9 · β₂ = 0.999 · ε = 10⁻⁸`;
-    varianceKind.textContent = 'Exact one-step variance of the raw policy gradient before Adam’s moment updates, averaged across the five displayed runs; log scale.';
+    varianceKind.textContent = 'Raw-gradient variance before Adam; log scale.';
   }
-  const runs = data.starts[start].methods[method];
-  const minBlue = Math.round(runs.min[data.steps].p[0] * 100);
-  const valueBlue = Math.round(runs.value[data.steps].p[0] * 100);
-  const counts = runs.cohortMiddleOver95;
-  caption.textContent = `Faint curves show five paired on-policy runs (seeds ${data.sampleSeeds[0]}–${data.sampleSeeds[data.sampleSeeds.length - 1]}). Bold curves and readouts average those same five runs at each step; this average need not be the path of any individual learner. At step ${data.steps}, the mean policies put ${minBlue}% on blue with minimum variance and ${valueBlue}% with the value baseline. In a separate 1,000-seed cohort, ${counts.min} minimum-variance runs versus ${counts.value} value-baseline runs put over 95% on orange at step ${data.steps}. These are finite-run results, not eventual-convergence claims.`;
+  caption.textContent = `Paired seeds ${data.sampleSeeds[0]}–${data.sampleSeeds[data.sampleSeeds.length - 1]}. The orange-concentration chart uses a separate cohort of ${data.cohortSize.toLocaleString("en-US")} runs.`;
   render();
-  playButton.textContent = 'Play';
+  pause();
 }
 
 playButton.addEventListener('click', togglePlayback);
@@ -298,7 +294,7 @@ fetch('three-arm-trajectories.json?v=500-steps')
     methods.hidden = false;
     document.getElementById('three-arm-starts').hidden = false;
     controls.hidden = false;
-    chooseScenario('uniform', 'adam');
+    chooseScenario('orange', 'adam');
   })
   .catch(() => {
     // The written explanation and static figure remain available.
