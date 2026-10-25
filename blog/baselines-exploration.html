@@ -304,35 +304,31 @@
           </div>
         </details>
 
-        <h2 id="baseline-gap">Why can the value baseline be higher?</h2>
+        <h2 id="baseline-gap">What does an “optimal” baseline optimize?</h2>
 
-        <p>Should the value function and the minimum-variance baseline become closer as the policy improves?</p>
+        <p>Suppose we could compute the exact minimum-variance baseline at every step. Would that prevent premature commitment?</p>
 
-        <p>In our softmax bandits, they can move further apart. The value function follows the reward the agent usually receives. The minimum-variance baseline also accounts for how strongly each action affects the gradient. As the policy concentrates on the best action, that action’s log-probability becomes less sensitive to its logits. Rare alternatives have larger score gradients and receive disproportionate weight in the variance calculation. When those alternatives are worse, they pull the minimum-variance baseline below the value function.</p>
+        <p>The three-arm result says no. Even this oracle baseline can reinforce the second-best action until sampling the best action becomes too rare to correct the policy. The failure does not require an inaccurate critic: it occurs with the exact solution to the variance-minimization problem. Under the natural-policy-gradient assumptions of our theorem, a different baseline with higher variance guarantees convergence to the best action.</p>
 
-        <p>Consider the two buttons again, this time comparing the value and minimum-variance baselines for ordinary softmax policy gradient. If blue gives reward 1, red gives reward 0, and blue is chosen with probability <em>p</em>, then:</p>
+        <p>The distinction is between making the current gradient estimate less noisy and ensuring that future samples remain informative. Variance minimization considers the current policy. But each sampled update changes that policy and, with on-policy sampling, the data the agent will collect next. If the variance-minimizing baseline lies below orange’s reward, orange receives positive feedback. Repeated orange samples can then make the agent increasingly confident without providing new evidence that orange is the best choice.</p>
 
-        <div class="math-line">V<sup>π</sup> = p, &nbsp;&nbsp; b* = 1 − p.</div>
-
-        <p>At 90% blue, the value baseline is 0.9 while the minimum-variance baseline is only 0.1. As the policy approaches always choosing blue, one tends to 1 and the other to 0. A baseline that best reduces gradient variance need not resemble the reward of a typical action.</p>
+        <p>Why might the value baseline help? As performance improves, it raises the standard an action must exceed to be reinforced. In our softmax examples, it also tends to sit above the minimum-variance baseline as the policy concentrates on good actions. This can make a practical difference: an action that receives positive feedback under the minimum-variance baseline may receive negative feedback under the value baseline, leaving more probability for alternatives.</p>
 
         <details class="baseline-math">
-          <summary>What determines the gap between the two baselines?</summary>
+          <summary>Why can the value baseline be higher?</summary>
           <div class="baseline-math-content">
-            <p>For ordinary policy gradient, write <em>w(a) = ‖∇<sub>θ</sub> log π<sub>θ</sub>(a)‖²</em>. The earlier derivation gives <em>b* = E[rw] / E[w]</em>. Since <em>V<sup>π</sup> = E[r]</em>, subtracting yields:</p>
+            <p>For ordinary policy gradient, write <em>w(a) = ‖∇<sub>θ</sub> log π<sub>θ</sub>(a)‖²</em>. The minimum-variance baseline weights rewards by squared score norms, giving <em>b* = E[rw] / E[w]</em>. Subtracting <em>V<sup>π</sup> = E[r]</em> yields:</p>
             <div class="math-line">b* − V<sup>π</sup> = Cov(r, w) / E[w].</div>
-            <p>All expectations are under the current policy. If high-reward actions have smaller score gradients, this covariance is negative, so <em>b* &lt; V<sup>π</sup></em>. For the two-button softmax, the squared score norms are proportional to <em>(1 − p)²</em> for blue and <em>p²</em> for red. Substitution gives <em>b* = 1 − p</em> for <em>0 &lt; p &lt; 1</em>.</p>
-            <p>This is a tendency near a good, concentrated policy, rather than a universal ordering. Near a confidently wrong policy, rare actions may be better and reverse the comparison. The variance-minimizing baseline also depends on the gradient estimator and parameter-space norm.</p>
+            <p>All expectations are under the current policy. As a softmax policy concentrates on a good action, that action’s score gradient becomes small. Rare, worse alternatives have larger score gradients and receive disproportionate weight in the variance calculation. A negative reward–squared-score covariance therefore places <em>b*</em> below <em>V<sup>π</sup></em>.</p>
+            <p>This ordering is not universal: near a confidently wrong policy, rare actions may be better and reverse the comparison. The minimum-variance baseline also depends on the gradient estimator and parameter-space norm. The ordering helps explain the tendency to commit; it is not by itself a convergence guarantee.</p>
           </div>
         </details>
-
-        <p>This gives another interpretation of the value baseline: as performance improves, it raises the standard an action must exceed to be reinforced. With three or more actions, the minimum-variance baseline can remain below the reward of a suboptimal action, allowing that action to keep receiving positive feedback. The value baseline can therefore discourage actions that the minimum-variance baseline would still reinforce.</p>
 
         <h2>Revisiting the usual explanation</h2>
 
         <p>What does this change about the usual justification for value baselines?</p>
 
-        <p>The usual justification is that the value function approximates the minimum-variance baseline. Our examples suggest a broader explanation: a baseline also affects how quickly the policy commits and whether it continues sampling alternatives.</p>
+        <p>The value function is often motivated as an approximation to the minimum-variance baseline. Yet departing from that baseline can be part of what makes it useful. A baseline shapes both the noise in the update and the agent’s willingness to keep sampling alternatives; optimizing the first does not guarantee the second.</p>
 
         <p>Our <a href="https://proceedings.neurips.cc/paper_files/paper/2022/hash/718d02a76d69686a36eccc8cde3e6a41-Abstract-Conference.html">NeurIPS 2022 follow-up</a> establishes convergence guarantees for on-policy natural policy gradient with the true value baseline in tabular settings. The baseline prevents the optimal action’s probability from vanishing, maintaining exploration even though gradient variance can remain unbounded.</p>
 
